@@ -187,7 +187,10 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
         }
 
-        FilmChips(vm)
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FilmChips(vm)
+            Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+        }
 
         Row(
             Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -395,7 +398,18 @@ private fun Viewfinder(film: Film, dateOn: Boolean, imageCapture: ImageCapture, 
                 .padding(horizontal = 8.dp, vertical = 4.dp),
         )
 
-        if (dateOn) {
+        if (film.vhs) {
+            ScanlinesOverlay()
+            Text(
+                "PLAY ▶",
+                color = Color.White,
+                fontFamily = MonoFont,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(2f, 2f), blurRadius = 2f)),
+                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
+            )
+        } else if (dateOn) {
             Text(
                 FilmProcessor.dateText(),
                 color = GraoColors.Ambar,
@@ -426,6 +440,19 @@ private fun VignetteOverlay(strength: Float) {
                 onDrawBehind { drawRect(brush) }
             }
     )
+}
+
+@Composable
+private fun ScanlinesOverlay() {
+    Canvas(Modifier.fillMaxSize()) {
+        val step = 3.dp.toPx()
+        val line = step / 2f
+        var y = 0f
+        while (y < size.height) {
+            drawRect(Color.Black.copy(alpha = 0.18f), topLeft = Offset(0f, y), size = Size(size.width, line))
+            y += step
+        }
+    }
 }
 
 @Composable

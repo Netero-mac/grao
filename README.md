@@ -5,7 +5,10 @@ App Android de câmera com efeitos de filme analógico. Você fotografa com um "
 ## O que já funciona
 
 - **Visor ao vivo com o filme aplicado**: cor do filme, vinheta, grão animado e data laranja opcional
-- **5 filmes**: Portra 400, Tri-X P&B, Polaroid (foto quadrada com moldura), Descartável (saturada, com data e mais light leaks) e Superia
+- **18 filmes**:
+  - Coloridos: Portra 400, Gold 200, Ektar 100, Superia, Pro 400H, Velvia 50, Ektachrome, CineStill 800T (halação vermelha nas luzes)
+  - Preto e branco: Tri-X, HP5, Sépia 1900 (com poeira e arranhões)
+  - Câmeras e estilos: Polaroid (moldura), Descartável, Huji 98, CPM35 (brilho difuso), Lomo Cross, Super 8 (arranhões), VHS (linhas de scan, aberração cromática e "PLAY")
 - **Foto final processada**: matriz de cor, light leak aleatório, vinheta, grão, data e moldura polaroid. Cada foto sai um pouco diferente
 - **Modo rolo**: 24 ou 36 poses (toque no contador antes da primeira foto). O filme fica travado até o fim do rolo
 - **Revelação**: quando o rolo enche, ele leva 60 minutos para revelar. Agitar (botão ou chacoalhar o celular) adianta 5 minutos. Também dá para rebobinar e revelar um rolo pela metade
