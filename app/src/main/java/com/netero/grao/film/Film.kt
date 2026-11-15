@@ -53,7 +53,7 @@ private object FilmCategories {
         "super8" to FilmCategory.RETRO, "vhs" to FilmCategory.RETRO, "anos70" to FilmCategory.RETRO, "indie" to FilmCategory.RETRO,
         "outono" to FilmCategory.MATTE, "cidade" to FilmCategory.MATTE, "sonho" to FilmCategory.MATTE,
         "matcha" to FilmCategory.MATTE, "gelo" to FilmCategory.MATTE, "rosa" to FilmCategory.MATTE,
-        "teal" to FilmCategory.CINEMA, "sunset" to FilmCategory.CINEMA, "ouro" to FilmCategory.CINEMA, "cinestill" to FilmCategory.CINEMA,
+        "teal" to FilmCategory.CINEMA, "nuvem" to FilmCategory.CINEMA, "sunset" to FilmCategory.CINEMA, "ouro" to FilmCategory.CINEMA, "cinestill" to FilmCategory.CINEMA,
         "miami" to FilmCategory.NEON, "vapor" to FilmCategory.NEON, "cyber" to FilmCategory.NEON,
         "y2k" to FilmCategory.NEON, "kidcore" to FilmCategory.NEON,
         "duo_rosa" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE,
@@ -277,6 +277,11 @@ object Films {
             preGamma = 1.55f,
         ),
         Film(
+            id = "nuvem", name = "Nuvem Rosa", description = "Céu e luzes rosados, sombras azul-petróleo",
+            matrix = nuvemMatrix(),
+            grain = 0.1f, vignette = 0.15f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+        ),
+        Film(
             id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",
             matrix = look(saturation = 1.05f, contrast = 1.15f, warmth = 0.18f, fade = 0f, b = 0.8f),
             grain = 0.1f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
@@ -326,6 +331,16 @@ internal fun cidadeMatrix(): ColorMatrix {
     )
     return m
 }
+
+/** "Nuvem Rosa": transformação medida no terceiro vídeo de referência. */
+internal fun nuvemMatrix(): ColorMatrix = ColorMatrix(
+    floatArrayOf(
+        0.943f, 0.559f, -0.233f, 0f, -27.5f,
+        -0.189f, 1.211f, 0.015f, 0f, -0.5f,
+        -0.018f, 0.21f, 0.828f, 0f, -1.3f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+)
 
 /** Monta uma matriz de cor a partir de ajustes simples. */
 internal fun look(
