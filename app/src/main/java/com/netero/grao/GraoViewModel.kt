@@ -2,6 +2,8 @@ package com.netero.grao
 
 import android.app.Application
 import android.graphics.Bitmap
+import android.net.Uri
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -13,6 +15,9 @@ import com.netero.grao.data.RollRepository
 import com.netero.grao.film.Film
 import com.netero.grao.film.FilmProcessor
 import com.netero.grao.film.Films
+import com.netero.grao.gl.EffectParams
+import com.netero.grao.gl.Fx
+import com.netero.grao.gl.GlEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -20,10 +25,17 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 
+/** O que abrir no editor: uma foto do celular ou uma foto do próprio Grão. */
+sealed class EditSource {
+    data class FromUri(val uri: Uri) : EditSource()
+    data class FromFile(val file: File) : EditSource()
+}
+
 class GraoViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = RollRepository(app)
     private val mutex = Mutex()
+    private val prefs = app.getSharedPreferences("grao_ui", 0)
 
     var currentRoll by mutableStateOf<Roll?>(null)
         private set
@@ -37,16 +49,31 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
     var dateOn by mutableStateOf(Films.all.first().dateByDefault)
     var flashOn by mutableStateOf(false)
 
-    /** Fotos tiradas que ainda estão sendo processadas. */
+    /** Efeitos ligados no visor da câmera. */
+    var cameraEffects by mutableStateOf<Map<Fx, Float>>(emptyMap())
+
+    /** Instantâneo: a foto aparece na hora. Rolo: espera revelar. */
+    var instantMode by mutableStateOf(prefs.getBoolean("instant", true))
+        private set
+
+    var favorites by mutableStateOf(prefs.getStringSet("favs", emptySet())!!.toSet())
+        private set
+
+    var editSource by mutableStateOf<EditSource?>(null)
+
     var processing by mutableIntStateOf(0)
         private set
 
-    /** Vira true quando um rolo enche; a tela de revelação abre sozinha. */
     var justFilled by mutableStateOf(false)
 
-    val activeFilm: Film get() = Films.byId(currentRoll?.filmId ?: selectedFilmId)
-    val shotsTaken: Int get() = (currentRoll?.shots ?: 0) + processing
-    val rollLocked: Boolean get() = shotsTaken > 0
+    val activeFilm: Film
+        get() = if (instantMode) Films.byId(selectedFilmId) else Films.byId(currentRoll?.filmId ?: selectedFilmId)
+    val shotsTaken: Int get() = (currentRoll?.shots ?: 0) + if (instantMode) 0 else processing
+    val rollLocked: Boolean get() = !instantMode && shotsTaken > 0
+
+    /** Parâmetros do visor ao vivo. */
+    val cameraParams: EffectParams
+        get() = EffectParams(filmId = activeFilm.id, effects = cameraEffects, dateOn = dateOn, seed = 7L)
 
     init {
         refresh()
@@ -65,11 +92,22 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
             currentRoll = data.first
             rolls = data.second
             lastPhoto = data.third
-            data.first?.let {
+            if (!instantMode) data.first?.let {
                 selectedFilmId = it.filmId
                 capacity = it.capacity
             }
         }
+    }
+
+    fun toggleInstant() {
+        instantMode = !instantMode
+        prefs.edit().putBoolean("instant", instantMode).apply()
+        refresh()
+    }
+
+    fun toggleFavorite(id: String) {
+        favorites = if (id in favorites) favorites - id else favorites + id
+        prefs.edit().putStringSet("favs", favorites).apply()
     }
 
     fun selectFilm(film: Film) {
@@ -78,25 +116,38 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
         dateOn = film.dateByDefault
     }
 
+    fun setCameraFx(fx: Fx, value: Float) {
+        cameraEffects = if (value <= 0f) cameraEffects - fx else cameraEffects + (fx to value)
+    }
+
     fun toggleCapacity() {
         if (rollLocked) return
         capacity = if (capacity == 36) 24 else 36
     }
 
     fun onCaptured(bitmap: Bitmap, rotation: Int, mirror: Boolean) {
-        val film = activeFilm
-        val date = dateOn
+        val params = cameraParams.copy(seed = System.nanoTime(), autoLeak = true)
         val cap = capacity
+        val instant = instantMode
         processing++
         viewModelScope.launch {
             try {
-                val processed = withContext(Dispatchers.Default) {
-                    FilmProcessor.process(FilmProcessor.rotate(bitmap, rotation, mirror), film, date)
+                val rotated = withContext(Dispatchers.Default) { FilmProcessor.rotate(bitmap, rotation, mirror) }
+                val processed = try {
+                    GlEngine.render(rotated, params)
+                } catch (t: Throwable) {
+                    Log.e("Grao", "GPU falhou, usando processamento antigo", t)
+                    withContext(Dispatchers.Default) { FilmProcessor.process(rotated, params.film, params.dateOn) }
                 }
                 val roll = withContext(Dispatchers.IO) {
-                    mutex.withLock { repo.addShot(film.id, cap, processed) }
+                    mutex.withLock {
+                        if (instant) repo.addInstant(params.filmId, processed)
+                        else repo.addShot(params.filmId, cap, processed)
+                    }
                 }
-                if (roll.fullAt != null) justFilled = true
+                if (!instant && roll.fullAt != null) justFilled = true
+            } catch (t: Throwable) {
+                Log.e("Grao", "Erro ao salvar foto", t)
             } finally {
                 processing--
                 refresh()

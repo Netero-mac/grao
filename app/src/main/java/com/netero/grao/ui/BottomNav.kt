@@ -37,11 +37,11 @@ fun BottomNav(current: Screen, dark: Boolean, onSelect: (Screen) -> Unit) {
             horizontalArrangement = Arrangement.SpaceAround,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            listOf(Screen.Camera to "Câmera", Screen.Gallery to "Galeria", Screen.Develop to "Revelar").forEach { (s, label) ->
+            listOf(Screen.Camera to "Câmera", Screen.Gallery to "Galeria", Screen.Editor to "Editar", Screen.Develop to "Revelar").forEach { (s, label) ->
                 val selected = s == current
                 Column(
                     Modifier
-                        .width(88.dp)
+                        .width(80.dp)
                         .height(56.dp)
                         .clickable { onSelect(s) },
                     horizontalAlignment = Alignment.CenterHorizontally,

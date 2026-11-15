@@ -48,11 +48,11 @@ import com.netero.grao.ui.theme.TituloFont
 import java.io.File
 
 @Composable
-fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
+fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (File) -> Unit = {}) {
     val developed = vm.rolls.filter { it.developed }
     var selectedId by remember { mutableStateOf<String?>(null) }
     val roll = developed.firstOrNull { it.id == selectedId } ?: developed.firstOrNull()
-    val photos by produceState(initialValue = emptyList<File>(), roll?.id) {
+    val photos by produceState(initialValue = emptyList<File>(), roll?.id, roll?.shots) {
         value = roll?.let { vm.photosOf(it) } ?: emptyList()
     }
     var viewing by remember { mutableStateOf<File?>(null) }
@@ -97,7 +97,7 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        "Rolo %02d".format(r.number),
+                        if (r.number == 0) "Instantâneas" else "Rolo %02d".format(r.number),
                         color = if (selected) GraoColors.Creme else GraoColors.Marrom,
                         fontSize = 13.sp,
                         fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
@@ -133,7 +133,12 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
         }
     }
 
-    viewing?.let { PhotoViewer(it) { viewing = null } }
+    viewing?.let { f ->
+        PhotoViewer(f, onEdit = {
+            viewing = null
+            onEdit(f)
+        }) { viewing = null }
+    }
 }
 
 @Composable
@@ -156,7 +161,7 @@ private fun Thumb(file: File, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PhotoViewer(file: File, onClose: () -> Unit) {
+private fun PhotoViewer(file: File, onEdit: () -> Unit, onClose: () -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             Modifier
@@ -171,6 +176,14 @@ private fun PhotoViewer(file: File, onClose: () -> Unit) {
                 contentScale = ContentScale.Fit,
                 modifier = Modifier.fillMaxSize().padding(16.dp),
             )
+            androidx.compose.material3.Button(
+                onClick = onEdit,
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = GraoColors.Laranja,
+                    contentColor = GraoColors.Preto,
+                ),
+                modifier = Modifier.align(Alignment.BottomCenter).padding(32.dp),
+            ) { Text("Editar esta foto") }
         }
     }
 }

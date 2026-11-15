@@ -22,7 +22,31 @@ class Film(
     val dust: Float = 0f,             // poeira, fios e arranhões
     val chroma: Float = 0f,           // aberração cromática (cores separadas)
     val vhs: Boolean = false,         // linhas de scan, imagem macia e texto PLAY
-)
+    val splitShadow: Int? = null,     // cor puxada nas sombras (split toning)
+    val splitHighlight: Int? = null,  // cor puxada nas luzes
+    val splitAmount: Float = 0f,
+    val glow: Float = 0f,             // brilho suave geral
+) {
+    val category: FilmCategory get() = Films.categoryOf(id)
+}
+
+enum class FilmCategory(val label: String) {
+    FILME("Filme"),
+    PB("P&B"),
+    VINTAGE("Vintage"),
+    VIDEO("Vídeo"),
+    TONS("Tons"),
+}
+
+private object FilmCategories {
+    val map = mapOf(
+        "trix" to FilmCategory.PB, "hp5" to FilmCategory.PB, "noir" to FilmCategory.PB,
+        "sepia" to FilmCategory.VINTAGE, "polaroid" to FilmCategory.VINTAGE, "descartavel" to FilmCategory.VINTAGE,
+        "huji" to FilmCategory.VINTAGE, "cpm35" to FilmCategory.VINTAGE, "lomo" to FilmCategory.VINTAGE,
+        "super8" to FilmCategory.VIDEO, "vhs" to FilmCategory.VIDEO,
+        "teal" to FilmCategory.TONS, "miami" to FilmCategory.TONS, "y2k" to FilmCategory.TONS, "rosa" to FilmCategory.TONS,
+    )
+}
 
 object Films {
     val all: List<Film> = listOf(
@@ -127,9 +151,43 @@ object Films {
             grain = 0.2f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
             chroma = 0.8f, vhs = true,
         ),
+
+        // --- Tons estéticos (estilo apps de efeitos) ---
+        Film(
+            id = "noir", name = "Noir", description = "Preto e branco duro, pretos profundos",
+            matrix = look(saturation = 0f, contrast = 1.45f, warmth = 0f, fade = 0f),
+            grain = 0.3f, vignette = 0.55f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+        ),
+        Film(
+            id = "teal", name = "Teal & Orange", description = "Cinema: sombras azul-petróleo e pele alaranjada",
+            matrix = look(saturation = 1.1f, contrast = 1.1f, warmth = 0.04f, fade = 0.05f),
+            grain = 0.15f, vignette = 0.3f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(0, 128, 140), splitHighlight = Color.rgb(255, 150, 70), splitAmount = 0.8f,
+        ),
+        Film(
+            id = "miami", name = "Miami", description = "Rosa e ciano neon, clima anos 80",
+            matrix = look(saturation = 1.25f, contrast = 1.05f, warmth = 0f, fade = 0.1f),
+            grain = 0.15f, vignette = 0.25f, leakChance = 0.1f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(40, 200, 230), splitHighlight = Color.rgb(255, 80, 180), splitAmount = 0.75f,
+            glow = 0.2f,
+        ),
+        Film(
+            id = "y2k", name = "Y2K Flash", description = "Flash estourado, frio e brilhante dos anos 2000",
+            matrix = look(saturation = 1.05f, contrast = 1.2f, warmth = -0.08f, fade = 0f, b = 1.06f),
+            grain = 0.2f, vignette = 0.45f, leakChance = 0f, dateByDefault = true, polaroidFrame = false,
+            glow = 0.35f,
+        ),
+        Film(
+            id = "rosa", name = "Rosé", description = "Tons rosados e suaves, sombras lilás",
+            matrix = look(saturation = 0.9f, contrast = 0.95f, warmth = 0.03f, fade = 0.22f, r = 1.04f, g = 0.96f, b = 1.0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0.05f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(150, 110, 200), splitHighlight = Color.rgb(255, 190, 200), splitAmount = 0.5f,
+        ),
     )
 
     fun byId(id: String?): Film = all.firstOrNull { it.id == id } ?: all.first()
+
+    fun categoryOf(id: String): FilmCategory = FilmCategories.map[id] ?: FilmCategory.FILME
 }
 
 /** Monta uma matriz de cor a partir de ajustes simples. */

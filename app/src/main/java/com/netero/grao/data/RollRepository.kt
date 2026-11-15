@@ -50,6 +50,21 @@ class RollRepository(private val context: Context) {
         return if (updated.isFull) sendToDevelop(updated) else updated.also { save(it) }
     }
 
+    /** Modo instantâneo: a foto vai direto para a galeria, sem rolo nem espera. */
+    fun addInstant(filmId: String, photo: Bitmap): Roll {
+        val roll = load(INSTANT_ID) ?: Roll(
+            id = INSTANT_ID, number = 0, filmId = filmId, capacity = Int.MAX_VALUE, shots = 0,
+            createdAt = System.currentTimeMillis(), developed = true,
+        ).also { File(root, INSTANT_ID).mkdirs() }
+        val n = roll.shots + 1
+        val file = File(dir(roll), "%05d.jpg".format(n))
+        file.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        val updated = roll.copy(shots = n, filmId = filmId, createdAt = System.currentTimeMillis())
+        save(updated)
+        exportToGallery(file, "grao_inst_${System.currentTimeMillis()}.jpg")
+        return updated
+    }
+
     /** "Rebobinar": manda o rolo atual para revelar mesmo sem estar cheio. */
     fun rewindCurrent(): Roll? {
         val r = currentRoll() ?: return null
@@ -159,6 +174,7 @@ class RollRepository(private val context: Context) {
     companion object {
         const val DEVELOP_MINUTES = 60
         const val SHAKE_MINUTES = 5
+        const val INSTANT_ID = "instant"
         private const val KEY_CURRENT = "current_roll"
     }
 }

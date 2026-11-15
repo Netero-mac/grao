@@ -21,11 +21,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.netero.grao.ui.BottomNav
 import com.netero.grao.ui.CameraScreen
 import com.netero.grao.ui.DevelopScreen
+import com.netero.grao.ui.EditorScreen
 import com.netero.grao.ui.GalleryScreen
 import com.netero.grao.ui.theme.GraoColors
 import com.netero.grao.ui.theme.GraoTheme
 
-enum class Screen { Camera, Gallery, Develop }
+enum class Screen { Camera, Gallery, Editor, Develop }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,16 +54,28 @@ fun GraoApp(vm: GraoViewModel = viewModel()) {
     when (screen) {
         Screen.Camera -> CameraScreen(vm, onOpenGallery = { screen = Screen.Gallery })
         else -> {
-            val dark = screen == Screen.Develop
+            val dark = screen != Screen.Gallery
             Column(
                 Modifier
                     .fillMaxSize()
-                    .background(if (dark) GraoColors.CamaraEscura else GraoColors.Creme)
+                    .background(
+                        when (screen) {
+                            Screen.Gallery -> GraoColors.Creme
+                            Screen.Editor -> GraoColors.Preto
+                            else -> GraoColors.CamaraEscura
+                        }
+                    )
                     .systemBarsPadding()
             ) {
                 Box(Modifier.weight(1f)) {
-                    if (screen == Screen.Gallery) GalleryScreen(vm, Modifier.fillMaxSize())
-                    else DevelopScreen(vm, Modifier.fillMaxSize())
+                    when (screen) {
+                        Screen.Gallery -> GalleryScreen(vm, Modifier.fillMaxSize()) { file ->
+                            vm.editSource = EditSource.FromFile(file)
+                            screen = Screen.Editor
+                        }
+                        Screen.Editor -> EditorScreen(vm, Modifier.fillMaxSize())
+                        else -> DevelopScreen(vm, Modifier.fillMaxSize())
+                    }
                 }
                 BottomNav(current = screen, dark = dark, onSelect = { screen = it })
             }

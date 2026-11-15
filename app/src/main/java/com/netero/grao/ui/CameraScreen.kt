@@ -1,26 +1,36 @@
 package com.netero.grao.ui
 
 import android.Manifest
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
-import android.graphics.ColorMatrixColorFilter
 import android.media.MediaActionSound
+import android.provider.MediaStore
 import android.util.Log
-import android.view.View
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCase
+import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.video.FallbackStrategy
+import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.Quality
+import androidx.camera.video.QualitySelector
+import androidx.camera.video.Recorder
+import androidx.camera.video.Recording
+import androidx.camera.video.VideoCapture
+import androidx.camera.video.VideoRecordEvent
 import androidx.camera.view.PreviewView
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -49,6 +59,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -58,78 +69,103 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageShader
-import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asImageBitmap
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import com.netero.grao.GraoViewModel
 import com.netero.grao.film.Film
-import com.netero.grao.film.FilmProcessor
 import com.netero.grao.film.Films
+import com.netero.grao.gl.CameraProcessor
+import com.netero.grao.gl.Fx
+import com.netero.grao.gl.GraoCameraEffect
 import com.netero.grao.ui.theme.GraoColors
 import com.netero.grao.ui.theme.MonoFont
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
-import kotlin.math.hypot
-import kotlin.random.Random
-import android.graphics.Paint as AndroidPaint
 
 @Composable
 fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
 
-    var hasPermission by remember {
-        mutableStateOf(
-            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                PackageManager.PERMISSION_GRANTED
-        )
-    }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
-        hasPermission = it
-    }
-    LaunchedEffect(Unit) { if (!hasPermission) launcher.launch(Manifest.permission.CAMERA) }
+    var hasCamera by remember { mutableStateOf(granted(context, Manifest.permission.CAMERA)) }
+    var hasAudio by remember { mutableStateOf(granted(context, Manifest.permission.RECORD_AUDIO)) }
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasCamera = it }
+    val audioLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { hasAudio = it }
+    LaunchedEffect(Unit) { if (!hasCamera) cameraLauncher.launch(Manifest.permission.CAMERA) }
 
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
+    var videoMode by remember { mutableStateOf(false) }
+    var showFx by remember { mutableStateOf(false) }
+    var videoAvailable by remember { mutableStateOf(true) }
+    var recording by remember { mutableStateOf<Recording?>(null) }
+    var recSeconds by remember { mutableIntStateOf(0) }
+
     val imageCapture = remember {
         ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
     }
+    val videoCapture = remember {
+        val recorder = Recorder.Builder()
+            .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+            .build()
+        VideoCapture.withOutput(recorder)
+    }
+    val processor = remember { CameraProcessor() }
+    val effect = remember { GraoCameraEffect(processor) }
     val executor = remember { Executors.newSingleThreadExecutor() }
     val sound = remember { MediaActionSound().apply { load(MediaActionSound.SHUTTER_CLICK) } }
     DisposableEffect(Unit) {
         onDispose {
+            recording?.stop()
             executor.shutdown()
             sound.release()
+            processor.release()
         }
     }
     val flash = remember { Animatable(0f) }
 
+    // O visor ao vivo recebe sempre os parâmetros atuais
+    val params = vm.cameraParams
+    SideEffect { processor.params = params }
+
+    val previewView = remember {
+        PreviewView(context).apply {
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
+    }
+
+    LaunchedEffect(lensFacing, hasCamera) {
+        if (!hasCamera) return@LaunchedEffect
+        val provider = context.cameraProvider()
+        val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
+        val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
+        val full = tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture, videoCapture), effect)
+        videoAvailable = full
+        if (!full &&
+            !tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), effect)
+        ) {
+            tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), null)
+        }
+    }
+
     val film = vm.activeFilm
 
     fun shoot() {
-        if (!hasPermission) return
+        if (!hasCamera) return
         val mirror = lensFacing == CameraSelector.LENS_FACING_FRONT
         val main = ContextCompat.getMainExecutor(context)
         imageCapture.flashMode = if (vm.flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
@@ -153,15 +189,55 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         })
     }
 
+    fun toggleRecord() {
+        val current = recording
+        if (current != null) {
+            current.stop()
+            recording = null
+            return
+        }
+        if (!videoAvailable) {
+            Toast.makeText(context, "Este celular não grava vídeo junto com os efeitos", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val values = ContentValues().apply {
+            put(MediaStore.Video.Media.DISPLAY_NAME, "grao_${System.currentTimeMillis()}")
+            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Grao")
+        }
+        val opts = MediaStoreOutputOptions.Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
+            .setContentValues(values)
+            .build()
+        var pending = videoCapture.output.prepareRecording(context, opts)
+        if (hasAudio) {
+            pending = try {
+                pending.withAudioEnabled()
+            } catch (e: SecurityException) {
+                pending
+            }
+        }
+        recSeconds = 0
+        recording = pending.start(ContextCompat.getMainExecutor(context)) { ev ->
+            when (ev) {
+                is VideoRecordEvent.Status -> recSeconds = (ev.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
+                is VideoRecordEvent.Finalize -> {
+                    recording = null
+                    val msg = if (ev.hasError()) "Erro ao salvar o vídeo" else "Vídeo salvo na galeria (Movies/Grao)"
+                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                }
+                else -> Unit
+            }
+        }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
             .background(GraoColors.Preto)
             .systemBarsPadding()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        TopBar(vm)
+        TopBar(vm, recording != null, recSeconds)
 
         Box(
             Modifier
@@ -171,8 +247,29 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 .border(6.dp, Color(0xFF0A0908), RoundedCornerShape(6.dp))
                 .background(Color.Black)
         ) {
-            if (hasPermission) {
-                Viewfinder(film = film, dateOn = vm.dateOn, imageCapture = imageCapture, lensFacing = lensFacing)
+            if (hasCamera) {
+                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+                if (film.polaroidFrame) {
+                    Box(
+                        Modifier
+                            .align(Alignment.Center)
+                            .fillMaxWidth()
+                            .aspectRatio(1f)
+                            .border(1.dp, GraoColors.Creme.copy(alpha = 0.6f))
+                    )
+                }
+                Text(
+                    film.name.uppercase(),
+                    color = GraoColors.Creme,
+                    fontSize = 11.sp,
+                    letterSpacing = 1.5.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(12.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(GraoColors.Preto.copy(alpha = 0.55f))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                )
             } else {
                 Column(
                     Modifier.align(Alignment.Center).padding(24.dp),
@@ -180,7 +277,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("O Grão precisa da câmera para fotografar.", color = GraoColors.Creme)
-                    TextButton(onClick = { launcher.launch(Manifest.permission.CAMERA) }) {
+                    TextButton(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }) {
                         Text("Permitir câmera", color = GraoColors.Ambar)
                     }
                 }
@@ -188,9 +285,35 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
         }
 
+        // Filmes ou efeitos
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            FilmChips(vm)
-            Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+            if (showFx) {
+                EffectsPanel(
+                    effects = vm.cameraEffects,
+                    onChange = { fx, v -> vm.setCameraFx(fx, v) },
+                    exclude = setOf(Fx.MOTION3D),
+                )
+            } else {
+                FilmChips(vm)
+                Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+            }
+        }
+
+        // Modos
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Pill(label = if (showFx) "FILMES" else "FX", active = showFx || vm.cameraEffects.isNotEmpty()) { showFx = !showFx }
+            SegmentedTabs(listOf("FOTO", "VÍDEO"), if (videoMode) 1 else 0) { i ->
+                if (recording != null) return@SegmentedTabs
+                videoMode = i == 1
+                if (videoMode && !hasAudio) audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+            Pill(label = if (vm.instantMode) "INSTANT" else "ROLO", active = !vm.instantMode) {
+                if (recording == null) vm.toggleInstant()
+            }
         }
 
         Row(
@@ -209,24 +332,33 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 vm.lastPhoto?.let {
                     AsyncImage(
                         model = it,
-                        contentDescription = "Última foto revelada",
+                        contentDescription = "Última foto",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
             }
 
+            val label = when {
+                !videoMode -> "Tirar foto"
+                recording != null -> "Parar gravação"
+                else -> "Gravar vídeo"
+            }
             Box(
                 Modifier
                     .size(84.dp)
                     .clip(CircleShape)
                     .border(4.dp, GraoColors.Creme, CircleShape)
                     .background(GraoColors.Preto)
-                    .clickable(onClickLabel = "Tirar foto") { shoot() }
-                    .semantics { contentDescription = "Tirar foto" },
+                    .clickable(onClickLabel = label) { if (videoMode) toggleRecord() else shoot() }
+                    .semantics { contentDescription = label },
                 contentAlignment = Alignment.Center,
             ) {
-                Box(Modifier.size(64.dp).clip(CircleShape).background(GraoColors.Laranja))
+                when {
+                    !videoMode -> Box(Modifier.size(64.dp).clip(CircleShape).background(GraoColors.Laranja))
+                    recording != null -> Box(Modifier.size(32.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFD83A2E)))
+                    else -> Box(Modifier.size(64.dp).clip(CircleShape).background(Color(0xFFD83A2E)))
+                }
             }
 
             Box(
@@ -236,6 +368,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     .border(1.dp, GraoColors.Marrom, CircleShape)
                     .background(GraoColors.Grafite)
                     .clickable(onClickLabel = "Virar câmera") {
+                        if (recording != null) return@clickable
                         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
                             CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
                     },
@@ -247,8 +380,30 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     }
 }
 
+private fun tryBind(
+    provider: ProcessCameraProvider,
+    owner: LifecycleOwner,
+    selector: CameraSelector,
+    useCases: List<UseCase>,
+    effect: CameraEffect?,
+): Boolean = try {
+    provider.unbindAll()
+    val group = UseCaseGroup.Builder().apply {
+        useCases.forEach { addUseCase(it) }
+        effect?.let { addEffect(it) }
+    }.build()
+    provider.bindToLifecycle(owner, selector, group)
+    true
+} catch (e: Exception) {
+    Log.w("Grao", "Combinação de câmera não suportada: ${useCases.size} casos, efeito=${effect != null}", e)
+    false
+}
+
+private fun granted(context: Context, permission: String) =
+    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
 @Composable
-private fun TopBar(vm: GraoViewModel) {
+private fun TopBar(vm: GraoViewModel, recording: Boolean, recSeconds: Int) {
     Row(
         Modifier.fillMaxWidth().height(48.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -258,23 +413,40 @@ private fun TopBar(vm: GraoViewModel) {
             vm.flashOn = !vm.flashOn
         }
         Column(
-            Modifier.clickable(enabled = !vm.rollLocked, onClickLabel = "Trocar entre 24 e 36 poses") {
+            Modifier.clickable(enabled = !vm.rollLocked && !vm.instantMode, onClickLabel = "Trocar entre 24 e 36 poses") {
                 vm.toggleCapacity()
             },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                "%02d/%02d".format(vm.shotsTaken, vm.capacity),
-                color = GraoColors.Ambar,
-                fontFamily = MonoFont,
-                fontSize = 22.sp,
-                letterSpacing = 2.sp,
-            )
-            Text(
-                if (vm.rollLocked) "restam ${vm.capacity - vm.shotsTaken} poses" else "toque: 24 ou 36 poses",
-                color = GraoColors.TextoClaro,
-                fontSize = 11.sp,
-            )
+            when {
+                recording -> {
+                    Text(
+                        "REC %02d:%02d".format(recSeconds / 60, recSeconds % 60),
+                        color = Color(0xFFFF5A4A),
+                        fontFamily = MonoFont,
+                        fontSize = 22.sp,
+                    )
+                    Text("gravando com efeitos", color = GraoColors.TextoClaro, fontSize = 11.sp)
+                }
+                vm.instantMode -> {
+                    Text("INST", color = GraoColors.Ambar, fontFamily = MonoFont, fontSize = 22.sp, letterSpacing = 2.sp)
+                    Text("fotos na hora", color = GraoColors.TextoClaro, fontSize = 11.sp)
+                }
+                else -> {
+                    Text(
+                        "%02d/%02d".format(vm.shotsTaken, vm.capacity),
+                        color = GraoColors.Ambar,
+                        fontFamily = MonoFont,
+                        fontSize = 22.sp,
+                        letterSpacing = 2.sp,
+                    )
+                    Text(
+                        if (vm.rollLocked) "restam ${vm.capacity - vm.shotsTaken} poses" else "toque: 24 ou 36 poses",
+                        color = GraoColors.TextoClaro,
+                        fontSize = 11.sp,
+                    )
+                }
+            }
         }
         Pill(label = if (vm.dateOn) "DATA ON" else "DATA OFF", active = vm.dateOn) {
             vm.dateOn = !vm.dateOn
@@ -360,148 +532,6 @@ private fun FilmChips(vm: GraoViewModel) {
                 TextButton(onClick = { pending = null }) { Text("Cancelar") }
             },
         )
-    }
-}
-
-@Composable
-private fun Viewfinder(film: Film, dateOn: Boolean, imageCapture: ImageCapture, lensFacing: Int) {
-    val context = LocalContext.current
-    val lifecycleOwner = LocalLifecycleOwner.current
-    val previewView = remember {
-        PreviewView(context).apply {
-            // COMPATIBLE usa TextureView, o que permite aplicar o filtro de cor ao vivo
-            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
-            scaleType = PreviewView.ScaleType.FILL_CENTER
-        }
-    }
-
-    LaunchedEffect(lensFacing) {
-        val provider = context.cameraProvider()
-        val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-        val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-        try {
-            provider.unbindAll()
-            provider.bindToLifecycle(lifecycleOwner, selector, preview, imageCapture)
-        } catch (e: Exception) {
-            Log.e("Grao", "Não deu para abrir a câmera", e)
-        }
-    }
-
-    Box(Modifier.fillMaxSize()) {
-        AndroidView(
-            factory = { previewView },
-            modifier = Modifier.fillMaxSize(),
-            update = { v ->
-                val paint = AndroidPaint().apply { colorFilter = ColorMatrixColorFilter(film.matrix) }
-                v.setLayerType(View.LAYER_TYPE_HARDWARE, paint)
-            },
-        )
-        VignetteOverlay(film.vignette)
-        GrainOverlay(film.grain)
-
-        if (film.polaroidFrame) {
-            Box(
-                Modifier
-                    .align(Alignment.Center)
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-                    .border(1.dp, GraoColors.Creme.copy(alpha = 0.6f))
-            )
-        }
-
-        Text(
-            film.name.uppercase(),
-            color = GraoColors.Creme,
-            fontSize = 11.sp,
-            letterSpacing = 1.5.sp,
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(12.dp)
-                .clip(RoundedCornerShape(4.dp))
-                .background(GraoColors.Preto.copy(alpha = 0.55f))
-                .padding(horizontal = 8.dp, vertical = 4.dp),
-        )
-
-        if (film.vhs) {
-            ScanlinesOverlay()
-            Text(
-                "PLAY ▶",
-                color = Color.White,
-                fontFamily = MonoFont,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                style = TextStyle(shadow = Shadow(color = Color.Black, offset = Offset(2f, 2f), blurRadius = 2f)),
-                modifier = Modifier.align(Alignment.TopEnd).padding(16.dp),
-            )
-        } else if (dateOn) {
-            Text(
-                FilmProcessor.dateText(),
-                color = GraoColors.Ambar,
-                fontFamily = MonoFont,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                style = TextStyle(shadow = Shadow(color = GraoColors.Ambar.copy(alpha = 0.8f), blurRadius = 12f)),
-                modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun VignetteOverlay(strength: Float) {
-    Box(
-        Modifier
-            .fillMaxSize()
-            .drawWithCache {
-                val r = hypot(size.width, size.height) / 2f
-                val brush = Brush.radialGradient(
-                    0f to Color.Transparent,
-                    0.55f to Color.Transparent,
-                    1f to Color.Black.copy(alpha = (strength * 0.9f).coerceIn(0f, 1f)),
-                    center = Offset(size.width / 2f, size.height / 2f),
-                    radius = r,
-                )
-                onDrawBehind { drawRect(brush) }
-            }
-    )
-}
-
-@Composable
-private fun ScanlinesOverlay() {
-    Canvas(Modifier.fillMaxSize()) {
-        val step = 3.dp.toPx()
-        val line = step / 2f
-        var y = 0f
-        while (y < size.height) {
-            drawRect(Color.Black.copy(alpha = 0.18f), topLeft = Offset(0f, y), size = Size(size.width, line))
-            y += step
-        }
-    }
-}
-
-@Composable
-private fun GrainOverlay(amount: Float) {
-    if (amount <= 0f) return
-    val brush = remember {
-        val tile = FilmProcessor.noiseTile(256, 42L).asImageBitmap()
-        ShaderBrush(ImageShader(tile, TileMode.Repeated, TileMode.Repeated))
-    }
-    var offset by remember { mutableStateOf(Offset.Zero) }
-    LaunchedEffect(Unit) {
-        while (true) {
-            offset = Offset(Random.nextFloat() * 256f, Random.nextFloat() * 256f)
-            delay(90)
-        }
-    }
-    Canvas(Modifier.fillMaxSize()) {
-        translate(-offset.x, -offset.y) {
-            drawRect(
-                brush = brush,
-                topLeft = Offset.Zero,
-                size = Size(size.width + 256f, size.height + 256f),
-                alpha = amount * 0.2f,
-            )
-        }
     }
 }
 
