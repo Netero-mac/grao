@@ -1,0 +1,18 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- anel da lente -->
+    <path
+        android:fillColor="#3B2A20"
+        android:pathData="M54,26 a28,28 0 1,1 0,56 a28,28 0 1,1 0,-56 z" />
+    <!-- disparo laranja -->
+    <path
+        android:fillColor="#E2683C"
+        android:pathData="M54,34 a20,20 0 1,1 0,40 a20,20 0 1,1 0,-40 z" />
+    <!-- reflexo -->
+    <path
+        android:fillColor="#F2E8D5"
+        android:pathData="M46,42 a4,4 0 1,1 0,8 a4,4 0 1,1 0,-8 z" />
+</vector>
