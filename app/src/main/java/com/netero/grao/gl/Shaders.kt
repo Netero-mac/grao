@@ -85,6 +85,7 @@ uniform float uDuotone;
 uniform float uGamma;
 uniform float uPreGamma;
 uniform float uLightLine;
+uniform float uDust;
 
 vec4 S(vec2 p) {
     return texture2D(uTex, (uTexMatrix * vec4(clamp(p, 0.0, 1.0), 0.0, 1.0)).xy);
@@ -157,6 +158,16 @@ void main() {
         float px = 4.0 + uPixel * 40.0;
         vec2 cells = uRes / px;
         uv = (floor(uv * cells) + 0.5) / cells;
+    }
+
+    // VHS: faixa de "tracking" descendo pela tela
+    if (uScanlines > 0.0 && uTime > 0.0) {
+        float by = fract(uTime * 0.12);
+        float d = abs(imgY - by);
+        if (d < 0.035) {
+            float jit = hash(vec2(floor(imgY * 220.0), floor(uTime * 30.0))) - 0.5;
+            uv.x += jit * 0.012 * uScanlines * (1.0 - d / 0.035);
+        }
     }
 
     // Glitch: faixas horizontais deslocadas
@@ -353,7 +364,8 @@ void main() {
 
     // Light leak (mistura "screen")
     if (uLeak > 0.0) {
-        vec2 p = (vec2(uv.x, imgY) - uLeakPos) * vec2(aspect, 1.0);
+        vec2 lp = uLeakPos + vec2(sin(uTime * 0.35), cos(uTime * 0.27)) * 0.08 * step(0.001, uTime);
+        vec2 p = (vec2(uv.x, imgY) - lp) * vec2(aspect, 1.0);
         float g = smoothstep(1.1, 0.0, length(p));
         col = 1.0 - (1.0 - clamp(col, 0.0, 1.0)) * (1.0 - uLeakColor * g * uLeak);
     }
@@ -378,6 +390,28 @@ void main() {
         float step3 = max(3.0, uRes.y / 360.0);
         float line = step(0.5, fract(imgY * uRes.y / step3));
         col *= 1.0 - line * 0.2 * uScanlines;
+    }
+
+    // Poeira, arranhões e tremulação: mudam ~12 vezes por segundo, como filme projetado
+    if (uDust > 0.0) {
+        float tick = floor(uTime * 12.0);
+        float cpx = max(2.0, uRes.y / 600.0);
+        vec2 cell = floor(uv * uRes / cpx);
+        float h = hash(cell + tick * 13.1 + uSeed);
+        float speck = step(1.0 - 0.0012 * uDust, h);
+        float darkSpeck = step(0.5, hash(cell * 1.7 + tick + 2.0));
+        vec3 sc = darkSpeck > 0.5 ? vec3(0.05, 0.04, 0.03) : vec3(0.95, 0.92, 0.85);
+        col = mix(col, sc, speck * 0.85);
+        for (int i = 0; i < 2; i++) {
+            float fi = float(i);
+            float on = step(0.4, hash(vec2(tick + fi * 3.0, 9.0 + uSeed)));
+            float sx = hash(vec2(tick * 0.37 + fi, uSeed + fi * 7.0));
+            sx += sin(imgY * 6.0 + fi) * 0.003;
+            float w = 1.5 / uRes.x;
+            float line = smoothstep(w, 0.0, abs(uv.x - sx)) * on;
+            col = mix(col, vec3(0.9, 0.88, 0.82), line * 0.4 * uDust);
+        }
+        col *= 1.0 + (hash(vec2(tick, 3.3 + uSeed)) - 0.5) * 0.08 * uDust * step(0.001, uTime);
     }
 
     col = clamp(col, 0.0, 1.0);

@@ -156,6 +156,7 @@ data class EffectParams(
             gamma = f.gamma,
             preGamma = f.preGamma,
             lightLine = fxE(Fx.LIGHTLINE),
+            dust = (film.dust * filterMix + fxE(Fx.DUST)).coerceIn(0f, 1.2f),
         )
     }
 
@@ -169,7 +170,7 @@ data class EffectParams(
     )
 
     fun decalKey(): DecalKey = DecalKey(
-        dust = (film.dust * filterMix + fxE(Fx.DUST)).coerceIn(0f, 1.2f),
+        dust = 0f,
         dateOn = dateOn,
         vhsText = (film.vhs && filterMix > 0.5f) || fxE(Fx.VHS) > 0.5f,
         text = text,
@@ -222,6 +223,7 @@ data class Uniforms(
     val gamma: Float,
     val preGamma: Float,
     val lightLine: Float,
+    val dust: Float,
 ) {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)

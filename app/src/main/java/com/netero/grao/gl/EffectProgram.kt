@@ -137,6 +137,7 @@ class EffectProgram(private val oes: Boolean) {
         f("uGamma", u.gamma)
         f("uPreGamma", u.preGamma)
         f("uLightLine", u.lightLine)
+        f("uDust", u.dust)
 
         quad.position(0)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 16, quad)
