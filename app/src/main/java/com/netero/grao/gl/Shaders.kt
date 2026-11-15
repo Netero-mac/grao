@@ -82,6 +82,8 @@ uniform float uComic;
 uniform float uHalftone;
 uniform float uThermal;
 uniform float uDuotone;
+uniform float uGamma;
+uniform float uLightLine;
 
 vec4 S(vec2 p) {
     return texture2D(uTex, (uTexMatrix * vec4(clamp(p, 0.0, 1.0), 0.0, 1.0)).xy);
@@ -105,7 +107,8 @@ vec3 screen(vec3 a, vec3 b) {
 
 vec3 grade(vec3 c) {
     vec3 f = (uColorMat * vec4(c, 1.0)).rgb + uColorOff.rgb;
-    c = mix(c, clamp(f, 0.0, 1.0), uFilterMix);
+    f = pow(clamp(f, 0.0, 1.0), vec3(uGamma));
+    c = mix(c, f, uFilterMix);
 
     float L0 = lum(clamp(c, 0.0, 1.0));
     c = mix(c, c + (uSplitS - 0.5) * 0.45, (1.0 - L0) * uSplitAmt);
@@ -336,6 +339,15 @@ void main() {
         float d = (uv.x + imgY) * 0.5;
         float band = smoothstep(0.35, 0.5, d) * smoothstep(0.75, 0.5, d);
         col = screen(col, hue(fract(d * 2.2)) * band * uRainbow * 0.6);
+    }
+
+    // Linha de luz: faixa vertical atravessando a imagem
+    if (uLightLine > 0.0) {
+        float x0 = fract(uTime * 0.3 + uSeed * 0.137) * 1.3 - 0.15;
+        float dx = abs(uv.x - x0) * aspect;
+        float core = smoothstep(0.006, 0.0, dx);
+        float halo = smoothstep(0.07, 0.0, dx) * 0.3;
+        col = screen(col, vec3(1.0, 0.98, 0.95) * (core + halo) * uLightLine);
     }
 
     // Light leak (mistura "screen")

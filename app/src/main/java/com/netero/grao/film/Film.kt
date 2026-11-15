@@ -28,6 +28,7 @@ class Film(
     val glow: Float = 0f,             // brilho suave geral
     val dream: Float = 0f,            // imagem enevoada
     val duotone: Boolean = false,     // pinta a imagem com duas cores (sombra e luz)
+    val gamma: Float = 1f,            // curva dos meios-tons (>1 escurece)
 ) {
     val category: FilmCategory get() = Films.categoryOf(id)
 }
@@ -51,7 +52,7 @@ private object FilmCategories {
         "kidcore" to FilmCategory.TONS, "indie" to FilmCategory.VINTAGE, "vapor" to FilmCategory.TONS,
         "cyber" to FilmCategory.TONS, "sunset" to FilmCategory.TONS, "anos70" to FilmCategory.VINTAGE,
         "matcha" to FilmCategory.TONS, "gelo" to FilmCategory.TONS, "sonho" to FilmCategory.TONS,
-        "duo_rosa" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE, "ouro" to FilmCategory.TONS,
+        "outono" to FilmCategory.TONS, "duo_rosa" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE, "ouro" to FilmCategory.TONS,
     )
 }
 
@@ -260,6 +261,12 @@ object Films {
             splitShadow = Color.rgb(60, 20, 110), splitHighlight = Color.rgb(200, 255, 80), duotone = true,
         ),
         Film(
+            id = "outono", name = "Outono", description = "Matte e escuro: pretos lavados, brancos apagados, cores marrons",
+            matrix = outonoMatrix(),
+            grain = 0.15f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            dream = 0.12f, gamma = 1.7f,
+        ),
+        Film(
             id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",
             matrix = look(saturation = 1.05f, contrast = 1.15f, warmth = 0.18f, fade = 0f, b = 0.8f),
             grain = 0.1f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
@@ -270,6 +277,27 @@ object Films {
     fun byId(id: String?): Film = all.firstOrNull { it.id == id } ?: all.first()
 
     fun categoryOf(id: String): FilmCategory = FilmCategories.map[id] ?: FilmCategory.FILME
+}
+
+/**
+ * "Outono": transformação de cor medida num vídeo de referência
+ * (quadro sem filtro x quadro filtrado), com pretos levantados.
+ */
+internal fun outonoMatrix(): ColorMatrix {
+    val k = 0.95f
+    val m = ColorMatrix()
+    m.setSaturation(1.15f)
+    m.postConcat(
+        ColorMatrix(
+            floatArrayOf(
+                0.625f * k, 0.042f * k, 0.128f * k, 0f, 48.7f,
+                0.091f * k, 0.523f * k, 0.154f * k, 0f, 51.6f,
+                -0.033f * k, 0.229f * k, 0.541f * k, 0f, 53.3f,
+                0f, 0f, 0f, 1f, 0f,
+            )
+        )
+    )
+    return m
 }
 
 /** Monta uma matriz de cor a partir de ajustes simples. */

@@ -22,6 +22,7 @@ enum class Fx(val label: String, val description: String, val category: FxCatego
     SIDELIGHT("Luz lateral", "Luz rosa e laranja entrando pelo lado", FxCategory.BRILHO),
     RAINBOW("Arco-íris", "Faixa de luz arco-íris na diagonal", FxCategory.BRILHO),
     DREAM("Sonho", "Imagem suave e enevoada", FxCategory.BRILHO),
+    LIGHTLINE("Linha de luz", "Faixa de luz vertical passando pela tela", FxCategory.BRILHO),
     HALATION("Halação", "Brilho vermelho de filme de cinema", FxCategory.BRILHO),
     GRAIN("Grão", "Grão de filme extra", FxCategory.RETRO),
     LEAK("Light leak", "Vazamento de luz laranja", FxCategory.RETRO),
@@ -149,6 +150,8 @@ data class EffectParams(
             halftone = fx(Fx.HALFTONE),
             thermal = fx(Fx.THERMAL),
             duotone = if (f.duotone) m else 0f,
+            gamma = f.gamma,
+            lightLine = fx(Fx.LIGHTLINE),
         )
     }
 
@@ -212,6 +215,8 @@ data class Uniforms(
     val halftone: Float,
     val thermal: Float,
     val duotone: Float,
+    val gamma: Float,
+    val lightLine: Float,
 ) {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)

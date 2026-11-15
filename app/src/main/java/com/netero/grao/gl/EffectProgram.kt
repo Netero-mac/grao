@@ -134,6 +134,8 @@ class EffectProgram(private val oes: Boolean) {
         f("uHalftone", u.halftone)
         f("uThermal", u.thermal)
         f("uDuotone", u.duotone)
+        f("uGamma", u.gamma)
+        f("uLightLine", u.lightLine)
 
         quad.position(0)
         GLES20.glVertexAttribPointer(aPos, 2, GLES20.GL_FLOAT, false, 16, quad)
