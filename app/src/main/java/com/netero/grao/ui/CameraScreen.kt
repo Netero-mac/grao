@@ -20,7 +20,7 @@ import androidx.camera.core.UseCase
 import androidx.camera.core.UseCaseGroup
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
-import androidx.camera.video.MediaStoreOutputOptions
+import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.Quality
 import androidx.camera.video.QualitySelector
 import androidx.camera.video.Recorder
@@ -83,6 +83,7 @@ import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
+import com.netero.grao.data.MediaSaver
 import com.netero.grao.GraoViewModel
 import com.netero.grao.film.Film
 import com.netero.grao.film.FilmCategory
@@ -92,7 +93,10 @@ import com.netero.grao.gl.Fx
 import com.netero.grao.gl.GraoCameraEffect
 import com.netero.grao.ui.theme.GraoColors
 import com.netero.grao.ui.theme.MonoFont
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 import java.util.concurrent.Executors
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -219,13 +223,10 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             Toast.makeText(context, "A câmera de vídeo não abriu neste celular", Toast.LENGTH_SHORT).show()
             return
         }
-        val values = ContentValues().apply {
-            put(MediaStore.Video.Media.DISPLAY_NAME, "grao_${System.currentTimeMillis()}")
-            put(MediaStore.Video.Media.RELATIVE_PATH, "Movies/Grao")
-        }
-        val opts = MediaStoreOutputOptions.Builder(context.contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-            .setContentValues(values)
-            .build()
+        // Grava primeiro num arquivo do próprio app (sempre funciona) e depois copia para a galeria
+        val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "videos").apply { mkdirs() }
+        val file = File(dir, "grao_${System.currentTimeMillis()}.mp4")
+        val opts = FileOutputOptions.Builder(file).build()
         var pending = videoCapture.output.prepareRecording(context, opts)
         if (hasAudio) {
             pending = try {
@@ -240,13 +241,21 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 is VideoRecordEvent.Status -> recSeconds = (ev.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
                 is VideoRecordEvent.Finalize -> {
                     recording = null
-                    val msg = if (ev.hasError()) {
+                    if (ev.hasError() && ev.error != VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE || !file.exists() || file.length() == 0L) {
                         Log.e("Grao", "Erro na gravação: ${ev.error}", ev.cause)
-                        "Erro no vídeo: ${videoErrorText(ev.error)}"
+                        Toast.makeText(context, "Erro no vídeo: ${videoErrorText(ev.error)}", Toast.LENGTH_LONG).show()
+                        file.delete()
                     } else {
-                        "Vídeo salvo na galeria (Movies/Grao)"
+                        scope.launch {
+                            val uri = withContext(Dispatchers.IO) { MediaSaver.saveVideoFile(context, file, file.name) }
+                            if (uri != null) {
+                                file.delete()
+                                Toast.makeText(context, "Vídeo salvo na galeria (Movies/Grao)", Toast.LENGTH_LONG).show()
+                            } else {
+                                Toast.makeText(context, "Vídeo salvo em ${file.parentFile?.path}", Toast.LENGTH_LONG).show()
+                            }
+                        }
                     }
-                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
                 else -> Unit
             }
