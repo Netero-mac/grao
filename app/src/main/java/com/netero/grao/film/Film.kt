@@ -41,6 +41,7 @@ enum class FilmCategory(val label: String) {
     RETRO("Retrô"),
     MATTE("Matte"),
     CINEMA("Cinema"),
+    SOMBRIO("Sombrio"),
     NEON("Neon"),
     ARTE("Arte"),
 }
@@ -53,6 +54,8 @@ private object FilmCategories {
         "super8" to FilmCategory.RETRO, "vhs" to FilmCategory.RETRO, "anos70" to FilmCategory.RETRO, "indie" to FilmCategory.RETRO,
         "outono" to FilmCategory.MATTE, "cidade" to FilmCategory.MATTE, "sonho" to FilmCategory.MATTE,
         "matcha" to FilmCategory.MATTE, "gelo" to FilmCategory.MATTE, "rosa" to FilmCategory.MATTE,
+        "frio" to FilmCategory.MATTE, "esmeralda" to FilmCategory.CINEMA,
+        "gotico" to FilmCategory.SOMBRIO, "etereo" to FilmCategory.SOMBRIO,
         "teal" to FilmCategory.CINEMA, "nuvem" to FilmCategory.CINEMA, "sunset" to FilmCategory.CINEMA, "ouro" to FilmCategory.CINEMA, "cinestill" to FilmCategory.CINEMA,
         "miami" to FilmCategory.NEON, "vapor" to FilmCategory.NEON, "cyber" to FilmCategory.NEON,
         "y2k" to FilmCategory.NEON, "kidcore" to FilmCategory.NEON,
@@ -282,6 +285,34 @@ object Films {
             grain = 0.1f, vignette = 0.15f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
         ),
         Film(
+            id = "frio", name = "Frio", description = "Cores apagadas e frias, quase cinza azulado",
+            matrix = frioMatrix(),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            preGamma = 1.83f, gamma = 0.50f,
+            splitShadow = Color.rgb(37, 46, 0), splitHighlight = Color.rgb(50, 205, 40), splitAmount = 1f,
+        ),
+        Film(
+            id = "esmeralda", name = "Esmeralda", description = "Tudo verde-esmeralda, luzes creme",
+            matrix = esmeraldaMatrix(),
+            grain = 0.2f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            preGamma = 0.76f, gamma = 1.33f,
+            splitShadow = Color.rgb(164, 0, 160), splitHighlight = Color.rgb(128, 255, 255), splitAmount = 1f,
+        ),
+        Film(
+            id = "gotico", name = "Gótico", description = "Sombras verde-petróleo escuras, clima de névoa",
+            matrix = goticoMatrix(),
+            grain = 0.2f, vignette = 0.3f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            preGamma = 0.67f, gamma = 1.22f,
+            splitShadow = Color.rgb(117, 158, 151), splitHighlight = Color.rgb(27, 255, 0), splitAmount = 1f,
+        ),
+        Film(
+            id = "etereo", name = "Etéreo", description = "Contraste alto, brancos brilhantes e sombras frias",
+            matrix = etereoMatrix(),
+            grain = 0.15f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            preGamma = 0.77f, gamma = 1.40f,
+            splitShadow = Color.rgb(114, 161, 168), splitHighlight = Color.rgb(255, 255, 117), splitAmount = 1f,
+        ),
+        Film(
             id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",
             matrix = look(saturation = 1.05f, contrast = 1.15f, warmth = 0.18f, fade = 0f, b = 0.8f),
             grain = 0.1f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
@@ -341,6 +372,44 @@ internal fun nuvemMatrix(): ColorMatrix = ColorMatrix(
         0f, 0f, 0f, 1f, 0f,
     )
 )
+
+/** Filtros medidos em vídeos de referência (antes/depois). */
+internal fun frioMatrix(): ColorMatrix = ColorMatrix(
+    floatArrayOf(
+        0.986f, -0.384f, 0.670f, 0f, 6.5f,
+        0.157f, 0.281f, 0.314f, 0f, 0.3f,
+        0.071f, 0.346f, 0.935f, 0f, 10.7f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+)
+
+internal fun esmeraldaMatrix(): ColorMatrix = ColorMatrix(
+    floatArrayOf(
+        1.408f, -0.774f, 0.494f, 0f, -28.7f,
+        0.104f, 0.270f, 0.172f, 0f, 80.8f,
+        0.388f, -0.082f, 0.604f, 0f, -38.4f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+)
+
+internal fun goticoMatrix(): ColorMatrix = ColorMatrix(
+    floatArrayOf(
+        1.639f, 0.061f, 0.006f, 0f, -102.0f,
+        0.011f, 1.057f, 0.004f, 0f, -47.3f,
+        0.017f, 0.056f, 1.498f, 0f, -67.9f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+)
+
+internal fun etereoMatrix(): ColorMatrix = ColorMatrix(
+    floatArrayOf(
+        1.325f, 0.287f, 0.029f, 0f, -102.0f,
+        0.084f, 1.500f, 0.028f, 0f, -102.0f,
+        0.085f, 0.284f, 1.258f, 0f, -78.0f,
+        0f, 0f, 0f, 1f, 0f,
+    )
+)
+
 
 /** Monta uma matriz de cor a partir de ajustes simples. */
 internal fun look(
