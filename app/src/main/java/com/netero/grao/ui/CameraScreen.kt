@@ -113,6 +113,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     var videoMode by remember { mutableStateOf(false) }
     var showFx by remember { mutableStateOf(false) }
     var videoAvailable by remember { mutableStateOf(true) }
+    var videoWithEffects by remember { mutableStateOf(true) }
     var recording by remember { mutableStateOf<Recording?>(null) }
     var recSeconds by remember { mutableIntStateOf(0) }
 
@@ -121,7 +122,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     }
     val videoCapture = remember {
         val recorder = Recorder.Builder()
-            .setQualitySelector(QualitySelector.from(Quality.FHD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
+            .setQualitySelector(QualitySelector.from(Quality.HD, FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)))
             .build()
         VideoCapture.withOutput(recorder)
     }
@@ -150,17 +151,33 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         }
     }
 
-    LaunchedEffect(lensFacing, hasCamera) {
+    // Liga só o que o modo atual precisa: muitos celulares não aguentam foto + vídeo + efeitos juntos
+    LaunchedEffect(lensFacing, hasCamera, videoMode) {
         if (!hasCamera) return@LaunchedEffect
         val provider = context.cameraProvider()
         val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
         val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
-        val full = tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture, videoCapture), effect)
-        videoAvailable = full
-        if (!full &&
-            !tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), effect)
-        ) {
-            tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), null)
+        if (videoMode) {
+            when {
+                tryBind(provider, lifecycleOwner, selector, listOf(preview, videoCapture), effect) -> {
+                    videoAvailable = true
+                    videoWithEffects = true
+                }
+                tryBind(provider, lifecycleOwner, selector, listOf(preview, videoCapture), null) -> {
+                    videoAvailable = true
+                    videoWithEffects = false
+                    Toast.makeText(context, "Neste celular o vídeo grava sem os efeitos", Toast.LENGTH_LONG).show()
+                }
+                else -> {
+                    videoAvailable = false
+                    tryBind(provider, lifecycleOwner, selector, listOf(preview), effect)
+                    Toast.makeText(context, "Não foi possível abrir a câmera para vídeo", Toast.LENGTH_LONG).show()
+                }
+            }
+        } else {
+            if (!tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), effect)) {
+                tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), null)
+            }
         }
     }
 
@@ -199,7 +216,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             return
         }
         if (!videoAvailable) {
-            Toast.makeText(context, "Este celular não grava vídeo junto com os efeitos", Toast.LENGTH_SHORT).show()
+            Toast.makeText(context, "A câmera de vídeo não abriu neste celular", Toast.LENGTH_SHORT).show()
             return
         }
         val values = ContentValues().apply {
@@ -218,16 +235,25 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             }
         }
         recSeconds = 0
-        recording = pending.start(ContextCompat.getMainExecutor(context)) { ev ->
+        recording = try { pending.start(ContextCompat.getMainExecutor(context)) { ev ->
             when (ev) {
                 is VideoRecordEvent.Status -> recSeconds = (ev.recordingStats.recordedDurationNanos / 1_000_000_000L).toInt()
                 is VideoRecordEvent.Finalize -> {
                     recording = null
-                    val msg = if (ev.hasError()) "Erro ao salvar o vídeo" else "Vídeo salvo na galeria (Movies/Grao)"
-                    Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                    val msg = if (ev.hasError()) {
+                        Log.e("Grao", "Erro na gravação: ${ev.error}", ev.cause)
+                        "Erro no vídeo: ${videoErrorText(ev.error)}"
+                    } else {
+                        "Vídeo salvo na galeria (Movies/Grao)"
+                    }
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
                 else -> Unit
             }
+        } } catch (e: Exception) {
+            Log.e("Grao", "Falha ao iniciar gravação", e)
+            Toast.makeText(context, "Não deu para começar a gravar: ${e.message}", Toast.LENGTH_LONG).show()
+            null
         }
     }
 
@@ -400,6 +426,17 @@ private fun tryBind(
 } catch (e: Exception) {
     Log.w("Grao", "Combinação de câmera não suportada: ${useCases.size} casos, efeito=${effect != null}", e)
     false
+}
+
+private fun videoErrorText(code: Int): String = when (code) {
+    VideoRecordEvent.Finalize.ERROR_INSUFFICIENT_STORAGE -> "sem espaço no celular"
+    VideoRecordEvent.Finalize.ERROR_NO_VALID_DATA -> "nenhum quadro foi gravado (grave por mais de 1 segundo)"
+    VideoRecordEvent.Finalize.ERROR_ENCODING_FAILED -> "o codificador de vídeo falhou"
+    VideoRecordEvent.Finalize.ERROR_SOURCE_INACTIVE -> "a câmera parou durante a gravação"
+    VideoRecordEvent.Finalize.ERROR_INVALID_OUTPUT_OPTIONS -> "não deu para criar o arquivo"
+    VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED -> "limite de tamanho atingido"
+    VideoRecordEvent.Finalize.ERROR_RECORDER_ERROR -> "erro do gravador"
+    else -> "código $code"
 }
 
 private fun granted(context: Context, permission: String) =
