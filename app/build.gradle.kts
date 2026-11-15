@@ -12,11 +12,25 @@ android {
         applicationId = "com.netero.grao"
         minSdk = 29
         targetSdk = 34
-        versionCode = 1
-        versionName = "0.1.0"
+        // Cada build do GitHub Actions ganha um número maior, para o Android aceitar a atualização
+        versionCode = (System.getenv("GITHUB_RUN_NUMBER") ?: "1").toInt()
+        versionName = "0.2.${System.getenv("GITHUB_RUN_NUMBER") ?: "0"}"
+    }
+
+    // Chave fixa: todo APK sai com a mesma assinatura e instala por cima do anterior
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("grao-debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("debug")
+        }
         release {
             isMinifyEnabled = false
         }

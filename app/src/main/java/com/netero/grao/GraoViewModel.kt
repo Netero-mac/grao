@@ -112,6 +112,18 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    /** Rebobina o rolo atual (vai para revelar) e já deixa o novo filme escolhido. */
+    fun switchFilm(film: Film) {
+        if (processing > 0) return
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { mutex.withLock { repo.rewindCurrent() } }
+            currentRoll = null
+            selectedFilmId = film.id
+            dateOn = film.dateByDefault
+            refresh()
+        }
+    }
+
     fun shake(roll: Roll) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { mutex.withLock { repo.shake(roll) } }

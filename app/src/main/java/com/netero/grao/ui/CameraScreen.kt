@@ -42,6 +42,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -304,9 +305,11 @@ private fun Pill(label: String, active: Boolean, onClick: () -> Unit) {
 
 @Composable
 private fun FilmChips(vm: GraoViewModel) {
-    val films = if (vm.rollLocked) listOf(vm.activeFilm) else Films.all
+    var pending by remember { mutableStateOf<Film?>(null) }
+
+    // Todos os filmes aparecem sempre. Com o rolo em uso, trocar pede confirmação.
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 2.dp)) {
-        items(films, key = { it.id }) { f ->
+        items(Films.all, key = { it.id }) { f ->
             val selected = f.id == vm.activeFilm.id
             Box(
                 Modifier
@@ -317,7 +320,13 @@ private fun FilmChips(vm: GraoViewModel) {
                         BorderStroke(1.dp, if (selected) GraoColors.Laranja else GraoColors.Marrom),
                         RoundedCornerShape(22.dp),
                     )
-                    .clickable { vm.selectFilm(f) }
+                    .clickable {
+                        when {
+                            selected -> Unit
+                            vm.rollLocked -> pending = f
+                            else -> vm.selectFilm(f)
+                        }
+                    }
                     .padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -329,13 +338,28 @@ private fun FilmChips(vm: GraoViewModel) {
                 )
             }
         }
-        if (vm.rollLocked) {
-            item {
-                Box(Modifier.height(44.dp), contentAlignment = Alignment.Center) {
-                    Text("filme carregado até o fim do rolo", color = GraoColors.TextoClaro, fontSize = 12.sp)
-                }
-            }
-        }
+    }
+
+    pending?.let { f ->
+        AlertDialog(
+            onDismissRequest = { pending = null },
+            title = { Text("Trocar para ${f.name}?") },
+            text = {
+                Text(
+                    "O rolo atual (${vm.shotsTaken}/${vm.capacity} · ${vm.activeFilm.name}) vai ser " +
+                        "rebobinado e enviado para revelar. Depois você começa um rolo novo com ${f.name}."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.switchFilm(f)
+                    pending = null
+                }) { Text("Trocar filme") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pending = null }) { Text("Cancelar") }
+            },
+        )
     }
 }
 
