@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,7 +26,21 @@ jobs:
       - name: Compilar APK de debug
         run: gradle assembleDebug --no-daemon
 
+      - name: Renomear APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk grao.apk
+
       - uses: actions/upload-artifact@v4
         with:
           name: grao-apk
-          path: app/build/outputs/apk/debug/*.apk
+          path: grao.apk
+
+      # Publica o .apk direto (sem zip) numa Release chamada "latest"
+      - name: Publicar na Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Grão (última versão)
+          body: "APK gerado automaticamente a partir do commit ${{ github.sha }}."
+          prerelease: false
+          make_latest: true
+          files: grao.apk

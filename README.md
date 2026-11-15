@@ -16,7 +16,7 @@ App Android de câmera com efeitos de filme analógico. Você fotografa com um "
 
 1. Suba o projeto para um repositório no GitHub (branch `main`)
 2. O workflow `.github/workflows/build.yml` roda sozinho a cada push (ou manualmente em *Actions → Gerar APK → Run workflow*)
-3. Baixe o artefato `grao-apk` na página da execução e instale no celular
+3. Baixe o APK direto pelo link fixo: https://github.com/Netero-mac/grao/releases/latest/download/grao.apk
 
 Localmente: `gradle assembleDebug` (Gradle 8.7 + JDK 17), ou abra no Android Studio.
 
