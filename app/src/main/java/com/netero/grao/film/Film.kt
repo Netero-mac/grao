@@ -30,6 +30,7 @@ class Film(
     val duotone: Boolean = false,     // pinta a imagem com duas cores (sombra e luz)
     val gamma: Float = 1f,            // curva dos meios-tons (>1 escurece)
     val preGamma: Float = 1f,         // curva aplicada antes da matriz de cor
+    val fx: Map<com.netero.grao.gl.Fx, Float> = emptyMap(), // efeitos que já vêm com o filtro
 ) {
     val category: FilmCategory get() = Films.categoryOf(id)
 }
@@ -59,7 +60,11 @@ private object FilmCategories {
         "teal" to FilmCategory.CINEMA, "nuvem" to FilmCategory.CINEMA, "sunset" to FilmCategory.CINEMA, "ouro" to FilmCategory.CINEMA, "cinestill" to FilmCategory.CINEMA,
         "miami" to FilmCategory.NEON, "vapor" to FilmCategory.NEON, "cyber" to FilmCategory.NEON,
         "y2k" to FilmCategory.NEON, "kidcore" to FilmCategory.NEON,
-        "duo_rosa" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE,
+        "duo_rosa" to FilmCategory.ARTE, "cianotipia" to FilmCategory.ARTE, "riso" to FilmCategory.ARTE,
+        "popart" to FilmCategory.ARTE, "quadrinho" to FilmCategory.ARTE, "jornal" to FilmCategory.ARTE,
+        "infra" to FilmCategory.ARTE, "negativo" to FilmCategory.ARTE, "termica" to FilmCategory.ARTE,
+        "pixel8" to FilmCategory.ARTE, "duo_sol" to FilmCategory.ARTE, "duo_menta" to FilmCategory.ARTE,
+        "duo_noite" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE,
     )
 }
 
@@ -311,6 +316,93 @@ object Films {
             grain = 0.15f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
             preGamma = 0.77f, gamma = 1.40f,
             splitShadow = Color.rgb(114, 161, 168), splitHighlight = Color.rgb(255, 255, 117), splitAmount = 1f,
+        ),
+
+        // --- Arte ---
+        Film(
+            id = "cianotipia", name = "Cianotipia", description = "Impressão azul antiga, como planta de arquiteto",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.3f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(14, 38, 92), splitHighlight = Color.rgb(226, 236, 242), duotone = true, dust = 0.25f,
+        ),
+        Film(
+            id = "riso", name = "Risografia", description = "Duas tintas, pontinhos e grão de gráfica",
+            matrix = look(saturation = 1f, contrast = 1.15f, warmth = 0f, fade = 0f),
+            grain = 0.5f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(0, 90, 170), splitHighlight = Color.rgb(255, 120, 170), duotone = true,
+            fx = mapOf(com.netero.grao.gl.Fx.HALFTONE to 0.45f),
+        ),
+        Film(
+            id = "popart", name = "Pop Art", description = "Cores berrantes com pontos de retícula",
+            matrix = look(saturation = 1.8f, contrast = 1.3f, warmth = 0f, fade = 0f),
+            grain = 0f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            fx = mapOf(com.netero.grao.gl.Fx.HALFTONE to 0.6f, com.netero.grao.gl.Fx.COMIC to 0.35f),
+        ),
+        Film(
+            id = "quadrinho", name = "Gibi", description = "Cores chapadas e contorno de desenho",
+            matrix = look(saturation = 1.35f, contrast = 1.1f, warmth = 0.03f, fade = 0f),
+            grain = 0f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            fx = mapOf(com.netero.grao.gl.Fx.COMIC to 0.9f),
+        ),
+        Film(
+            id = "jornal", name = "Jornal", description = "Preto e branco em pontinhos, papel de jornal",
+            matrix = look(saturation = 0f, contrast = 1.25f, warmth = 0f, fade = 0.1f),
+            grain = 0.2f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            fx = mapOf(com.netero.grao.gl.Fx.HALFTONE to 0.85f),
+        ),
+        Film(
+            id = "infra", name = "Infravermelho", description = "Folhas e plantas viram rosa e vermelho",
+            matrix = ColorMatrix(
+                floatArrayOf(
+                    0.15f, 0.95f, -0.05f, 0f, 0f,
+                    0.85f, 0.1f, 0.05f, 0f, 0f,
+                    -0.05f, 0.1f, 0.95f, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f,
+                )
+            ),
+            grain = 0.3f, vignette = 0.3f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+        ),
+        Film(
+            id = "negativo", name = "Negativo", description = "Cores invertidas, como o filme antes de revelar",
+            matrix = ColorMatrix(
+                floatArrayOf(
+                    -1f, 0f, 0f, 0f, 255f,
+                    0f, -1f, 0f, 0f, 255f,
+                    0f, 0f, -1f, 0f, 255f,
+                    0f, 0f, 0f, 1f, 0f,
+                )
+            ),
+            grain = 0.3f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+        ),
+        Film(
+            id = "termica", name = "Térmica", description = "Visão de câmera de calor",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            fx = mapOf(com.netero.grao.gl.Fx.THERMAL to 1f),
+        ),
+        Film(
+            id = "pixel8", name = "8 bits", description = "Pixels grandes e cores de videogame antigo",
+            matrix = look(saturation = 1.4f, contrast = 1.2f, warmth = 0f, fade = 0f),
+            grain = 0f, vignette = 0f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            fx = mapOf(com.netero.grao.gl.Fx.PIXEL to 0.35f, com.netero.grao.gl.Fx.COMIC to 0.4f),
+        ),
+        Film(
+            id = "duo_sol", name = "Duo Sol", description = "Duas cores: vinho e amarelo",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(90, 10, 40), splitHighlight = Color.rgb(255, 210, 60), duotone = true,
+        ),
+        Film(
+            id = "duo_menta", name = "Duo Menta", description = "Duas cores: verde-floresta e menta",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(10, 50, 40), splitHighlight = Color.rgb(170, 255, 215), duotone = true,
+        ),
+        Film(
+            id = "duo_noite", name = "Duo Noite", description = "Duas cores: preto e laranja neon",
+            matrix = look(saturation = 1f, contrast = 1.2f, warmth = 0f, fade = 0f),
+            grain = 0.2f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(12, 10, 20), splitHighlight = Color.rgb(255, 120, 40), duotone = true,
         ),
         Film(
             id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",

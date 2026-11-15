@@ -88,6 +88,9 @@ data class EffectParams(
     val film: Film get() = Films.byId(filmId)
 
     fun fx(f: Fx) = effects[f] ?: 0f
+
+    /** Efeito somado ao que o filtro já traz embutido (proporcional à intensidade do filtro). */
+    private fun fxE(f: Fx) = ((effects[f] ?: 0f) + (film.fx[f] ?: 0f) * filterMix).coerceAtMost(1.5f)
     fun adj(a: Adj) = adjust[a] ?: 0f
 
     fun withFx(f: Fx, v: Float) = copy(effects = effects + (f to v.coerceIn(0f, 1f)))
@@ -120,39 +123,39 @@ data class EffectParams(
             fade = adj(Adj.FADE).coerceAtLeast(0f),
             sharpen = adj(Adj.SHARPEN).coerceAtLeast(0f),
             vignette = (f.vignette * m + adj(Adj.VIGNETTE).coerceAtLeast(0f)).coerceIn(0f, 1.2f),
-            grain = (f.grain * m + fx(Fx.GRAIN)).coerceIn(0f, 1.2f),
-            chroma = (f.chroma * m + fx(Fx.RGB)).coerceIn(0f, 1.5f),
-            halation = (f.halation * m + fx(Fx.HALATION)).coerceIn(0f, 1.5f),
-            halationColor = if (f.halation > 0f && fx(Fx.HALATION) == 0f) f.halationColor else Color.rgb(255, 60, 35),
-            glow = (f.glow * m + fx(Fx.GLOW)).coerceIn(0f, 1.5f),
-            sparkle = fx(Fx.SPARKLE),
-            prism = fx(Fx.PRISM),
-            glitch = fx(Fx.GLITCH),
-            scanlines = ((if (f.vhs) 1f else 0f) * m + fx(Fx.VHS)).coerceIn(0f, 1f),
-            leak = (auto + fx(Fx.LEAK)).coerceIn(0f, 1f),
+            grain = (f.grain * m + fxE(Fx.GRAIN)).coerceIn(0f, 1.2f),
+            chroma = (f.chroma * m + fxE(Fx.RGB)).coerceIn(0f, 1.5f),
+            halation = (f.halation * m + fxE(Fx.HALATION)).coerceIn(0f, 1.5f),
+            halationColor = if (f.halation > 0f && fxE(Fx.HALATION) == 0f) f.halationColor else Color.rgb(255, 60, 35),
+            glow = (f.glow * m + fxE(Fx.GLOW)).coerceIn(0f, 1.5f),
+            sparkle = fxE(Fx.SPARKLE),
+            prism = fxE(Fx.PRISM),
+            glitch = fxE(Fx.GLITCH),
+            scanlines = ((if (f.vhs) 1f else 0f) * m + fxE(Fx.VHS)).coerceIn(0f, 1f),
+            leak = (auto + fxE(Fx.LEAK)).coerceIn(0f, 1f),
             leakX = leakX,
             leakY = leakY,
             leakColor = leakColor,
             splitShadow = shadow,
             splitHighlight = high,
             splitAmount = f.splitAmount * m,
-            vhsSoften = f.vhs && m > 0.5f || fx(Fx.VHS) > 0.5f,
-            glitter = fx(Fx.GLITTER),
-            party = fx(Fx.PARTY),
-            sideLight = fx(Fx.SIDELIGHT),
-            rainbow = fx(Fx.RAINBOW),
-            dream = (f.dream * m + fx(Fx.DREAM)).coerceIn(0f, 1f),
-            pixel = fx(Fx.PIXEL),
-            fisheye = fx(Fx.FISHEYE),
-            mirror = fx(Fx.MIRROR),
-            kaleido = fx(Fx.KALEIDO),
-            comic = fx(Fx.COMIC),
-            halftone = fx(Fx.HALFTONE),
-            thermal = fx(Fx.THERMAL),
+            vhsSoften = f.vhs && m > 0.5f || fxE(Fx.VHS) > 0.5f,
+            glitter = fxE(Fx.GLITTER),
+            party = fxE(Fx.PARTY),
+            sideLight = fxE(Fx.SIDELIGHT),
+            rainbow = fxE(Fx.RAINBOW),
+            dream = (f.dream * m + fxE(Fx.DREAM)).coerceIn(0f, 1f),
+            pixel = fxE(Fx.PIXEL),
+            fisheye = fxE(Fx.FISHEYE),
+            mirror = fxE(Fx.MIRROR),
+            kaleido = fxE(Fx.KALEIDO),
+            comic = fxE(Fx.COMIC),
+            halftone = fxE(Fx.HALFTONE),
+            thermal = fxE(Fx.THERMAL),
             duotone = if (f.duotone) m else 0f,
             gamma = f.gamma,
             preGamma = f.preGamma,
-            lightLine = fx(Fx.LIGHTLINE),
+            lightLine = fxE(Fx.LIGHTLINE),
         )
     }
 
@@ -166,9 +169,9 @@ data class EffectParams(
     )
 
     fun decalKey(): DecalKey = DecalKey(
-        dust = (film.dust * filterMix + fx(Fx.DUST)).coerceIn(0f, 1.2f),
+        dust = (film.dust * filterMix + fxE(Fx.DUST)).coerceIn(0f, 1.2f),
         dateOn = dateOn,
-        vhsText = (film.vhs && filterMix > 0.5f) || fx(Fx.VHS) > 0.5f,
+        vhsText = (film.vhs && filterMix > 0.5f) || fxE(Fx.VHS) > 0.5f,
         text = text,
         seed = seed,
     )
