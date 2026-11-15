@@ -57,6 +57,10 @@ private object FilmCategories {
         "matcha" to FilmCategory.MATTE, "gelo" to FilmCategory.MATTE, "rosa" to FilmCategory.MATTE,
         "frio" to FilmCategory.MATTE, "esmeralda" to FilmCategory.CINEMA,
         "gotico" to FilmCategory.SOMBRIO, "etereo" to FilmCategory.SOMBRIO,
+        "noturno" to FilmCategory.SOMBRIO, "lua" to FilmCategory.SOMBRIO, "vampiro" to FilmCategory.SOMBRIO,
+        "floresta" to FilmCategory.SOMBRIO, "nevoa" to FilmCategory.SOMBRIO, "tempestade" to FilmCategory.SOMBRIO,
+        "ruina" to FilmCategory.SOMBRIO, "assombrado" to FilmCategory.SOMBRIO, "crepusculo" to FilmCategory.SOMBRIO,
+        "abismo" to FilmCategory.SOMBRIO,
         "teal" to FilmCategory.CINEMA, "nuvem" to FilmCategory.CINEMA, "sunset" to FilmCategory.CINEMA, "ouro" to FilmCategory.CINEMA, "cinestill" to FilmCategory.CINEMA,
         "miami" to FilmCategory.NEON, "vapor" to FilmCategory.NEON, "cyber" to FilmCategory.NEON,
         "y2k" to FilmCategory.NEON, "kidcore" to FilmCategory.NEON,
@@ -404,6 +408,70 @@ object Films {
             grain = 0.2f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
             splitShadow = Color.rgb(12, 10, 20), splitHighlight = Color.rgb(255, 120, 40), duotone = true,
         ),
+
+        // --- Sombrio ---
+        Film(
+            id = "noturno", name = "Noturno", description = "Noite azul profunda, pretos fechados",
+            matrix = look(saturation = 0.7f, contrast = 1.15f, warmth = -0.2f, fade = 0f, b = 1.1f),
+            grain = 0.35f, vignette = 0.6f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.35f, splitShadow = Color.rgb(20, 40, 110), splitHighlight = Color.rgb(170, 190, 230), splitAmount = 0.6f,
+        ),
+        Film(
+            id = "lua", name = "Luar", description = "Luz prateada da lua, sombras escuras e brilho frio",
+            matrix = look(saturation = 0.45f, contrast = 1.2f, warmth = -0.12f, fade = 0f, b = 1.05f),
+            grain = 0.25f, vignette = 0.55f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.25f, glow = 0.35f, splitShadow = Color.rgb(30, 45, 80), splitHighlight = Color.rgb(220, 230, 255), splitAmount = 0.5f,
+        ),
+        Film(
+            id = "vampiro", name = "Vampiro", description = "Quase sem cor, só o vermelho escuro sobrevive",
+            matrix = vampiroMatrix(),
+            grain = 0.35f, vignette = 0.6f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.2f, splitShadow = Color.rgb(70, 0, 15), splitHighlight = Color.rgb(200, 190, 190), splitAmount = 0.5f,
+        ),
+        Film(
+            id = "floresta", name = "Floresta Sombria", description = "Verde escuro e úmido de mata fechada",
+            matrix = look(saturation = 0.75f, contrast = 1.15f, warmth = -0.05f, fade = 0.05f, r = 0.9f, g = 1.05f, b = 0.92f),
+            grain = 0.35f, vignette = 0.55f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.3f, splitShadow = Color.rgb(15, 50, 35), splitHighlight = Color.rgb(200, 215, 180), splitAmount = 0.6f,
+            dream = 0.15f,
+        ),
+        Film(
+            id = "nevoa", name = "Névoa", description = "Neblina cinza, tudo lavado e misterioso",
+            matrix = look(saturation = 0.5f, contrast = 0.85f, warmth = -0.05f, fade = 0.45f),
+            grain = 0.3f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            dream = 0.55f, splitShadow = Color.rgb(70, 80, 90), splitHighlight = Color.rgb(215, 220, 225), splitAmount = 0.4f,
+        ),
+        Film(
+            id = "tempestade", name = "Tempestade", description = "Azul-aço, contraste duro de céu carregado",
+            matrix = look(saturation = 0.55f, contrast = 1.35f, warmth = -0.15f, fade = 0f),
+            grain = 0.4f, vignette = 0.5f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.15f, splitShadow = Color.rgb(25, 40, 60), splitHighlight = Color.rgb(190, 205, 215), splitAmount = 0.5f,
+        ),
+        Film(
+            id = "ruina", name = "Ruína", description = "Bleach bypass: sem cor, metálico e duro",
+            matrix = look(saturation = 0.35f, contrast = 1.45f, warmth = 0f, fade = 0f, g = 1.02f),
+            grain = 0.45f, vignette = 0.45f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.1f,
+        ),
+        Film(
+            id = "assombrado", name = "Assombrado", description = "Foto antiga escura, sépia sujo com poeira",
+            matrix = look(saturation = 0f, contrast = 1.15f, warmth = 0f, fade = 0.1f, r = 1.1f, g = 0.95f, b = 0.75f),
+            grain = 0.6f, vignette = 0.85f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.35f, dust = 0.9f,
+        ),
+        Film(
+            id = "crepusculo", name = "Crepúsculo", description = "Fim de tarde roxo, sombras violeta",
+            matrix = look(saturation = 0.85f, contrast = 1.1f, warmth = 0.05f, fade = 0.05f, r = 1.02f, g = 0.9f, b = 1.08f),
+            grain = 0.25f, vignette = 0.5f, leakChance = 0.1f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.25f, splitShadow = Color.rgb(55, 20, 90), splitHighlight = Color.rgb(255, 170, 150), splitAmount = 0.65f,
+        ),
+        Film(
+            id = "abismo", name = "Abismo", description = "Quase tudo preto, só as luzes aparecem em verde-azulado",
+            matrix = look(saturation = 0.6f, contrast = 1.3f, warmth = -0.1f, fade = 0f),
+            grain = 0.4f, vignette = 0.8f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            gamma = 1.6f, halation = 0.3f, halationColor = Color.rgb(60, 200, 190),
+            splitShadow = Color.rgb(5, 25, 30), splitHighlight = Color.rgb(160, 220, 210), splitAmount = 0.6f,
+        ),
         Film(
             id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",
             matrix = look(saturation = 1.05f, contrast = 1.15f, warmth = 0.18f, fade = 0f, b = 0.8f),
@@ -502,6 +570,23 @@ internal fun etereoMatrix(): ColorMatrix = ColorMatrix(
     )
 )
 
+
+/** "Vampiro": tira a cor de tudo, menos de uma parte do vermelho. */
+internal fun vampiroMatrix(): ColorMatrix {
+    val m = ColorMatrix()
+    m.setSaturation(0.25f)
+    m.postConcat(
+        ColorMatrix(
+            floatArrayOf(
+                1.35f, -0.2f, -0.15f, 0f, 0f,
+                0f, 0.92f, 0f, 0f, 0f,
+                0f, 0f, 0.92f, 0f, 0f,
+                0f, 0f, 0f, 1f, 0f,
+            )
+        )
+    )
+    return m
+}
 
 /** Monta uma matriz de cor a partir de ajustes simples. */
 internal fun look(
