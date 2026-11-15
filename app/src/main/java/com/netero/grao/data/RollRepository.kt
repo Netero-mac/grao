@@ -58,10 +58,11 @@ class RollRepository(private val context: Context) {
         ).also { File(root, INSTANT_ID).mkdirs() }
         val n = roll.shots + 1
         val file = File(dir(roll), "%05d.jpg".format(n))
-        file.outputStream().use { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }
+        val bytes = java.io.ByteArrayOutputStream().also { photo.compress(Bitmap.CompressFormat.JPEG, 92, it) }.toByteArray()
+        file.writeBytes(bytes)
         val updated = roll.copy(shots = n, filmId = filmId, createdAt = System.currentTimeMillis())
         save(updated)
-        exportToGallery(file, "grao_inst_${System.currentTimeMillis()}.jpg")
+        exportBytes(bytes, "grao_inst_${System.currentTimeMillis()}.jpg")
         return updated
     }
 
@@ -149,6 +150,25 @@ class RollRepository(private val context: Context) {
             )
         } catch (e: Exception) {
             null
+        }
+    }
+
+    private fun exportBytes(bytes: ByteArray, name: String) {
+        try {
+            val resolver = context.contentResolver
+            val values = ContentValues().apply {
+                put(MediaStore.Images.Media.DISPLAY_NAME, name)
+                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.RELATIVE_PATH, "Pictures/Grao")
+                put(MediaStore.Images.Media.IS_PENDING, 1)
+            }
+            val uri = resolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values) ?: return
+            resolver.openOutputStream(uri)?.use { it.write(bytes) }
+            values.clear()
+            values.put(MediaStore.Images.Media.IS_PENDING, 0)
+            resolver.update(uri, values, null, null)
+        } catch (e: Exception) {
+            // Se falhar, a foto continua disponível dentro do app.
         }
     }
 

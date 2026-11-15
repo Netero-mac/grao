@@ -52,6 +52,9 @@ object GlEngine {
         pbuffer = pb
     }
 
+    /** Cria o contexto e compila o shader antecipadamente. */
+    suspend fun warmUp() = withContext(dispatcher) { ensure() }
+
     /** Aplica filtro + efeitos + decalque e (opcionalmente) a moldura. */
     suspend fun render(
         src: Bitmap,

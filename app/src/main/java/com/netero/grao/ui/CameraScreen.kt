@@ -18,6 +18,11 @@ import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCase
 import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
+import android.graphics.BitmapFactory
+import android.util.Size
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FallbackStrategy
 import androidx.camera.video.FileOutputOptions
@@ -71,6 +76,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -122,7 +128,18 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     var recSeconds by remember { mutableIntStateOf(0) }
 
     val imageCapture = remember {
-        ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY).build()
+        // ~5 MP basta: a foto final tem no máximo 2400 px. Sensor de 50 MP deixava tudo lento.
+        ImageCapture.Builder()
+            .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(
+                        ResolutionStrategy(Size(2560, 1920), ResolutionStrategy.FALLBACK_RULE_CLOSEST_LOWER_THEN_HIGHER)
+                    )
+                    .build()
+            )
+            .build()
     }
     val videoCapture = remember {
         val recorder = Recorder.Builder()
@@ -199,7 +216,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         }
         imageCapture.takePicture(executor, object : ImageCapture.OnImageCapturedCallback() {
             override fun onCaptureSuccess(image: ImageProxy) {
-                val bitmap = image.toBitmap()
+                val bitmap = decodeFast(image)
                 val rotation = image.imageInfo.rotationDegrees
                 image.close()
                 main.execute { vm.onCaptured(bitmap, rotation, mirror) }
@@ -368,12 +385,29 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                         .background(GraoColors.Grafite)
                         .clickable(onClickLabel = "Abrir galeria") { onOpenGallery() }
                 ) {
-                    vm.lastPhoto?.let {
-                        AsyncImage(
-                            model = it,
-                            contentDescription = "Última foto",
+                    val quick = vm.quickThumb
+                    if (quick != null && vm.processing > 0) {
+                        androidx.compose.foundation.Image(
+                            quick.asImageBitmap(),
+                            contentDescription = "Foto sendo salva",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.fillMaxSize(),
+                        )
+                    } else {
+                        vm.lastPhoto?.let {
+                            AsyncImage(
+                                model = it,
+                                contentDescription = "Última foto",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                    if (vm.processing > 0) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            color = GraoColors.Laranja,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.align(Alignment.Center).size(22.dp),
                         )
                     }
                 }
@@ -446,6 +480,30 @@ private fun videoErrorText(code: Int): String = when (code) {
     VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED -> "limite de tamanho atingido"
     VideoRecordEvent.Finalize.ERROR_RECORDER_ERROR -> "erro do gravador"
     else -> "código $code"
+}
+
+/** Decodifica o JPEG já reduzido (bem mais rápido que decodificar inteiro e reduzir depois). */
+private fun decodeFast(image: ImageProxy): android.graphics.Bitmap {
+    if (image.format == android.graphics.ImageFormat.JPEG) {
+        try {
+            val buf = image.planes[0].buffer
+            buf.rewind()
+            val bytes = ByteArray(buf.remaining())
+            buf.get(bytes)
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            var sample = 1
+            while (maxOf(bounds.outWidth, bounds.outHeight) / (sample * 2) >= 2400) sample *= 2
+            val opts = BitmapFactory.Options().apply {
+                inSampleSize = sample
+                inPreferredConfig = android.graphics.Bitmap.Config.ARGB_8888
+            }
+            BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)?.let { return it }
+        } catch (e: Exception) {
+            Log.w("Grao", "Decodificação rápida falhou", e)
+        }
+    }
+    return image.toBitmap()
 }
 
 private fun granted(context: Context, permission: String) =

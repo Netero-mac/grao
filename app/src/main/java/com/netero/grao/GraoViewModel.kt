@@ -64,6 +64,10 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
     var processing by mutableIntStateOf(0)
         private set
 
+    /** Prévia pequena mostrada na hora do clique, enquanto a foto é processada. */
+    var quickThumb by mutableStateOf<Bitmap?>(null)
+        private set
+
     var justFilled by mutableStateOf(false)
 
     val activeFilm: Film
@@ -77,6 +81,14 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refresh()
+        // Liga a GPU antes da primeira foto para ela não demorar mais
+        viewModelScope.launch {
+            try {
+                GlEngine.warmUp()
+            } catch (t: Throwable) {
+                Log.w("Grao", "Aquecimento da GPU falhou", t)
+            }
+        }
     }
 
     fun refresh() {
@@ -132,6 +144,9 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
         processing++
         viewModelScope.launch {
             try {
+                quickThumb = withContext(Dispatchers.Default) {
+                    FilmProcessor.rotate(GlEngine.fit(bitmap, 240), rotation, mirror)
+                }
                 val rotated = withContext(Dispatchers.Default) { FilmProcessor.rotate(bitmap, rotation, mirror) }
                 val processed = try {
                     GlEngine.render(rotated, params)
