@@ -69,6 +69,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -229,152 +230,153 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         }
     }
 
-    Column(
-        Modifier
-            .fillMaxSize()
-            .background(GraoColors.Preto)
-            .systemBarsPadding()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        TopBar(vm, recording != null, recSeconds)
-
-        Box(
-            Modifier
-                .weight(1f)
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(6.dp))
-                .border(6.dp, Color(0xFF0A0908), RoundedCornerShape(6.dp))
-                .background(Color.Black)
-        ) {
-            if (hasCamera) {
-                AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
-                if (film.polaroidFrame) {
-                    Box(
-                        Modifier
-                            .align(Alignment.Center)
-                            .fillMaxWidth()
-                            .aspectRatio(1f)
-                            .border(1.dp, GraoColors.Creme.copy(alpha = 0.6f))
-                    )
-                }
-                Text(
-                    film.name.uppercase(),
-                    color = GraoColors.Creme,
-                    fontSize = 11.sp,
-                    letterSpacing = 1.5.sp,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(12.dp)
-                        .clip(RoundedCornerShape(4.dp))
-                        .background(GraoColors.Preto.copy(alpha = 0.55f))
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
+    // Visor em tela cheia, controles flutuando por cima
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (hasCamera) {
+            AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+            if (film.polaroidFrame) {
+                Box(
+                    Modifier
+                        .align(Alignment.Center)
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                        .border(1.dp, GraoColors.Creme.copy(alpha = 0.6f))
                 )
-            } else {
-                Column(
-                    Modifier.align(Alignment.Center).padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+            }
+        } else {
+            Column(
+                Modifier.align(Alignment.Center).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text("O Grão precisa da câmera para fotografar.", color = GraoColors.Creme)
+                TextButton(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }) {
+                    Text("Permitir câmera", color = GraoColors.Ambar)
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
+
+        // Topo
+        Column(
+            Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
+                .systemBarsPadding()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+        ) {
+            TopBar(vm, recording != null, recSeconds)
+            Text(
+                film.name.uppercase(),
+                color = GraoColors.Creme,
+                fontSize = 11.sp,
+                letterSpacing = 1.5.sp,
+                modifier = Modifier
+                    .padding(top = 8.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(GraoColors.Preto.copy(alpha = 0.55f))
+                    .padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
+
+        // Base
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f), Color.Black)))
+                .systemBarsPadding()
+                .padding(start = 16.dp, end = 16.dp, top = 40.dp, bottom = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                if (showFx) {
+                    EffectsPanel(
+                        effects = vm.cameraEffects,
+                        onChange = { fx, v -> vm.setCameraFx(fx, v) },
+                        exclude = setOf(Fx.MOTION3D),
+                    )
+                } else {
+                    FilmChips(vm)
+                    Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Pill(label = if (showFx) "FILMES" else "FX", active = showFx || vm.cameraEffects.isNotEmpty()) { showFx = !showFx }
+                SegmentedTabs(listOf("FOTO", "VÍDEO"), if (videoMode) 1 else 0) { i ->
+                    if (recording != null) return@SegmentedTabs
+                    videoMode = i == 1
+                    if (videoMode && !hasAudio) audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                }
+                Pill(label = if (vm.instantMode) "INSTANT" else "ROLO", active = !vm.instantMode) {
+                    if (recording == null) vm.toggleInstant()
+                }
+            }
+
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .border(2.dp, GraoColors.Creme, RoundedCornerShape(12.dp))
+                        .background(GraoColors.Grafite)
+                        .clickable(onClickLabel = "Abrir galeria") { onOpenGallery() }
                 ) {
-                    Text("O Grão precisa da câmera para fotografar.", color = GraoColors.Creme)
-                    TextButton(onClick = { cameraLauncher.launch(Manifest.permission.CAMERA) }) {
-                        Text("Permitir câmera", color = GraoColors.Ambar)
+                    vm.lastPhoto?.let {
+                        AsyncImage(
+                            model = it,
+                            contentDescription = "Última foto",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     }
                 }
-            }
-            Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
-        }
 
-        // Filmes ou efeitos
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (showFx) {
-                EffectsPanel(
-                    effects = vm.cameraEffects,
-                    onChange = { fx, v -> vm.setCameraFx(fx, v) },
-                    exclude = setOf(Fx.MOTION3D),
-                )
-            } else {
-                FilmChips(vm)
-                Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
-            }
-        }
-
-        // Modos
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Pill(label = if (showFx) "FILMES" else "FX", active = showFx || vm.cameraEffects.isNotEmpty()) { showFx = !showFx }
-            SegmentedTabs(listOf("FOTO", "VÍDEO"), if (videoMode) 1 else 0) { i ->
-                if (recording != null) return@SegmentedTabs
-                videoMode = i == 1
-                if (videoMode && !hasAudio) audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
-            Pill(label = if (vm.instantMode) "INSTANT" else "ROLO", active = !vm.instantMode) {
-                if (recording == null) vm.toggleInstant()
-            }
-        }
-
-        Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                Modifier
-                    .size(52.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .border(2.dp, GraoColors.Creme, RoundedCornerShape(8.dp))
-                    .background(GraoColors.Grafite)
-                    .clickable(onClickLabel = "Abrir galeria") { onOpenGallery() }
-            ) {
-                vm.lastPhoto?.let {
-                    AsyncImage(
-                        model = it,
-                        contentDescription = "Última foto",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize(),
-                    )
+                val label = when {
+                    !videoMode -> "Tirar foto"
+                    recording != null -> "Parar gravação"
+                    else -> "Gravar vídeo"
                 }
-            }
-
-            val label = when {
-                !videoMode -> "Tirar foto"
-                recording != null -> "Parar gravação"
-                else -> "Gravar vídeo"
-            }
-            Box(
-                Modifier
-                    .size(84.dp)
-                    .clip(CircleShape)
-                    .border(4.dp, GraoColors.Creme, CircleShape)
-                    .background(GraoColors.Preto)
-                    .clickable(onClickLabel = label) { if (videoMode) toggleRecord() else shoot() }
-                    .semantics { contentDescription = label },
-                contentAlignment = Alignment.Center,
-            ) {
-                when {
-                    !videoMode -> Box(Modifier.size(64.dp).clip(CircleShape).background(GraoColors.Laranja))
-                    recording != null -> Box(Modifier.size(32.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFD83A2E)))
-                    else -> Box(Modifier.size(64.dp).clip(CircleShape).background(Color(0xFFD83A2E)))
+                Box(
+                    Modifier
+                        .size(84.dp)
+                        .clip(CircleShape)
+                        .border(4.dp, Color.White, CircleShape)
+                        .clickable(onClickLabel = label) { if (videoMode) toggleRecord() else shoot() }
+                        .semantics { contentDescription = label },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    when {
+                        !videoMode -> Box(Modifier.size(66.dp).clip(CircleShape).background(Color.White))
+                        recording != null -> Box(Modifier.size(32.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFFF3B30)))
+                        else -> Box(Modifier.size(66.dp).clip(CircleShape).background(Color(0xFFFF3B30)))
+                    }
                 }
-            }
 
-            Box(
-                Modifier
-                    .size(52.dp)
-                    .clip(CircleShape)
-                    .border(1.dp, GraoColors.Marrom, CircleShape)
-                    .background(GraoColors.Grafite)
-                    .clickable(onClickLabel = "Virar câmera") {
-                        if (recording != null) return@clickable
-                        lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
-                            CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Filled.Refresh, contentDescription = "Virar câmera", tint = GraoColors.Creme)
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.15f))
+                        .clickable(onClickLabel = "Virar câmera") {
+                            if (recording != null) return@clickable
+                            lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK)
+                                CameraSelector.LENS_FACING_FRONT else CameraSelector.LENS_FACING_BACK
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Filled.Refresh, contentDescription = "Virar câmera", tint = Color.White)
+                }
             }
         }
     }
@@ -460,8 +462,8 @@ private fun Pill(label: String, active: Boolean, onClick: () -> Unit) {
         Modifier
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
-            .border(1.dp, if (active) GraoColors.Ambar else GraoColors.Marrom, RoundedCornerShape(22.dp))
-            .background(GraoColors.Grafite)
+            .border(1.dp, if (active) GraoColors.Ambar else Color.White.copy(alpha = 0.2f), RoundedCornerShape(22.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,

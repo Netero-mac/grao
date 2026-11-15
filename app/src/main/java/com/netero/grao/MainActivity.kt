@@ -54,13 +54,13 @@ fun GraoApp(vm: GraoViewModel = viewModel()) {
     when (screen) {
         Screen.Camera -> CameraScreen(vm, onOpenGallery = { screen = Screen.Gallery })
         else -> {
-            val dark = screen != Screen.Gallery
+            val dark = true
             Column(
                 Modifier
                     .fillMaxSize()
                     .background(
                         when (screen) {
-                            Screen.Gallery -> GraoColors.Creme
+                            Screen.Gallery -> GraoColors.Preto
                             Screen.Editor -> GraoColors.Preto
                             else -> GraoColors.CamaraEscura
                         }

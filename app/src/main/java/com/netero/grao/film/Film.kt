@@ -26,6 +26,8 @@ class Film(
     val splitHighlight: Int? = null,  // cor puxada nas luzes
     val splitAmount: Float = 0f,
     val glow: Float = 0f,             // brilho suave geral
+    val dream: Float = 0f,            // imagem enevoada
+    val duotone: Boolean = false,     // pinta a imagem com duas cores (sombra e luz)
 ) {
     val category: FilmCategory get() = Films.categoryOf(id)
 }
@@ -36,6 +38,7 @@ enum class FilmCategory(val label: String) {
     VINTAGE("Vintage"),
     VIDEO("Vídeo"),
     TONS("Tons"),
+    ARTE("Arte"),
 }
 
 private object FilmCategories {
@@ -45,6 +48,10 @@ private object FilmCategories {
         "huji" to FilmCategory.VINTAGE, "cpm35" to FilmCategory.VINTAGE, "lomo" to FilmCategory.VINTAGE,
         "super8" to FilmCategory.VIDEO, "vhs" to FilmCategory.VIDEO,
         "teal" to FilmCategory.TONS, "miami" to FilmCategory.TONS, "y2k" to FilmCategory.TONS, "rosa" to FilmCategory.TONS,
+        "kidcore" to FilmCategory.TONS, "indie" to FilmCategory.VINTAGE, "vapor" to FilmCategory.TONS,
+        "cyber" to FilmCategory.TONS, "sunset" to FilmCategory.TONS, "anos70" to FilmCategory.VINTAGE,
+        "matcha" to FilmCategory.TONS, "gelo" to FilmCategory.TONS, "sonho" to FilmCategory.TONS,
+        "duo_rosa" to FilmCategory.ARTE, "duo_lima" to FilmCategory.ARTE, "ouro" to FilmCategory.TONS,
     )
 }
 
@@ -182,6 +189,81 @@ object Films {
             matrix = look(saturation = 0.9f, contrast = 0.95f, warmth = 0.03f, fade = 0.22f, r = 1.04f, g = 0.96f, b = 1.0f),
             grain = 0.15f, vignette = 0.2f, leakChance = 0.05f, dateByDefault = false, polaroidFrame = false,
             splitShadow = Color.rgb(150, 110, 200), splitHighlight = Color.rgb(255, 190, 200), splitAmount = 0.5f,
+        ),
+        Film(
+            id = "kidcore", name = "Kidcore", description = "Cores primárias berrantes, clima de desenho infantil",
+            matrix = look(saturation = 1.7f, contrast = 1.15f, warmth = 0.02f, fade = 0f),
+            grain = 0.1f, vignette = 0.1f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            glow = 0.15f,
+        ),
+        Film(
+            id = "indie", name = "Indie", description = "Laranja queimado, verdes sujos e fade",
+            matrix = look(saturation = 0.85f, contrast = 1.05f, warmth = 0.16f, fade = 0.3f, g = 1.04f, b = 0.85f),
+            grain = 0.35f, vignette = 0.3f, leakChance = 0.15f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(60, 110, 80), splitHighlight = Color.rgb(255, 170, 90), splitAmount = 0.45f,
+        ),
+        Film(
+            id = "vapor", name = "Vapor", description = "Vaporwave: roxo, rosa e azul piscina",
+            matrix = look(saturation = 1.2f, contrast = 1.0f, warmth = 0f, fade = 0.15f, r = 1.05f, g = 0.92f, b = 1.1f),
+            grain = 0.15f, vignette = 0.25f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(90, 60, 200), splitHighlight = Color.rgb(255, 130, 210), splitAmount = 0.7f,
+            glow = 0.25f,
+        ),
+        Film(
+            id = "cyber", name = "Cyber", description = "Noite de neon: magenta e ciano com contraste alto",
+            matrix = look(saturation = 1.3f, contrast = 1.3f, warmth = -0.05f, fade = 0f),
+            grain = 0.2f, vignette = 0.5f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(0, 210, 230), splitHighlight = Color.rgb(255, 40, 170), splitAmount = 0.85f,
+            glow = 0.3f, chroma = 0.25f,
+        ),
+        Film(
+            id = "sunset", name = "Pôr do sol", description = "Hora dourada exagerada, tudo laranja e rosado",
+            matrix = look(saturation = 1.2f, contrast = 1.05f, warmth = 0.22f, fade = 0.08f, b = 0.85f),
+            grain = 0.15f, vignette = 0.3f, leakChance = 0.25f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(180, 70, 120), splitHighlight = Color.rgb(255, 190, 90), splitAmount = 0.5f,
+            glow = 0.2f,
+        ),
+        Film(
+            id = "anos70", name = "Anos 70", description = "Marrom, mostarda e foto desbotada de álbum",
+            matrix = look(saturation = 0.75f, contrast = 0.95f, warmth = 0.2f, fade = 0.35f, g = 0.98f, b = 0.78f),
+            grain = 0.45f, vignette = 0.45f, leakChance = 0.15f, dateByDefault = false, polaroidFrame = false,
+            dust = 0.3f,
+        ),
+        Film(
+            id = "matcha", name = "Matcha", description = "Verde suave e calmo, sombras claras",
+            matrix = look(saturation = 0.85f, contrast = 0.92f, warmth = -0.02f, fade = 0.25f, r = 0.95f, g = 1.05f, b = 0.95f),
+            grain = 0.15f, vignette = 0.15f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(90, 140, 100), splitHighlight = Color.rgb(240, 240, 200), splitAmount = 0.4f,
+        ),
+        Film(
+            id = "gelo", name = "Gelo", description = "Azul frio de inverno, brancos limpos",
+            matrix = look(saturation = 0.8f, contrast = 1.05f, warmth = -0.18f, fade = 0.12f, b = 1.08f),
+            grain = 0.1f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            dream = 0.15f,
+        ),
+        Film(
+            id = "sonho", name = "Sonho", description = "Pastel enevoado e brilhante",
+            matrix = look(saturation = 0.9f, contrast = 0.85f, warmth = 0.04f, fade = 0.3f),
+            grain = 0.1f, vignette = 0.1f, leakChance = 0.1f, dateByDefault = false, polaroidFrame = false,
+            dream = 0.6f, glow = 0.3f,
+        ),
+        Film(
+            id = "duo_rosa", name = "Duo Rosa", description = "Duas cores: azul-marinho e rosa",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(25, 30, 90), splitHighlight = Color.rgb(255, 120, 170), duotone = true,
+        ),
+        Film(
+            id = "duo_lima", name = "Duo Lima", description = "Duas cores: roxo e verde-limão",
+            matrix = look(saturation = 1f, contrast = 1.1f, warmth = 0f, fade = 0f),
+            grain = 0.15f, vignette = 0.2f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            splitShadow = Color.rgb(60, 20, 110), splitHighlight = Color.rgb(200, 255, 80), duotone = true,
+        ),
+        Film(
+            id = "ouro", name = "Ouro", description = "Dourado brilhante com reflexos de luz",
+            matrix = look(saturation = 1.05f, contrast = 1.15f, warmth = 0.18f, fade = 0f, b = 0.8f),
+            grain = 0.1f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
+            glow = 0.35f,
         ),
     )
 

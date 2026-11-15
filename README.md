@@ -5,11 +5,10 @@ App Android de câmera com efeitos de filme analógico. Você fotografa com um "
 ## O que já funciona
 
 - **Visor ao vivo com o filme aplicado**: cor do filme, vinheta, grão animado e data laranja opcional
-- **18 filmes**:
-  - Coloridos: Portra 400, Gold 200, Ektar 100, Superia, Pro 400H, Velvia 50, Ektachrome, CineStill 800T (halação vermelha nas luzes)
-  - Preto e branco: Tri-X, HP5, Sépia 1900 (com poeira e arranhões)
-  - Câmeras e estilos: Polaroid (moldura), Descartável, Huji 98, CPM35 (brilho difuso), Lomo Cross, Super 8 (arranhões), VHS (linhas de scan, aberração cromática e "PLAY")
-- **Foto final processada**: matriz de cor, light leak aleatório, vinheta, grão, data e moldura polaroid. Cada foto sai um pouco diferente
+- **35 filtros** em categorias (Filme, P&B, Vintage, Vídeo, Tons, Arte): Portra, Gold, Ektar, CineStill, Huji, CPM35, VHS, Teal & Orange, Miami, Y2K, Kidcore, Indie, Vapor, Cyber, Pôr do sol, Anos 70, Duotones e mais
+- **22 efeitos empilháveis** com intensidade: Brilho, Diamante, Glitter, Festa, Luz lateral, Arco-íris, Sonho, Halação, Grão, Light leak, Poeira, VHS, Glitch, RGB Split, Prisma, Pixel, Olho de peixe, Espelho, Caleidoscópio, Quadrinho, Retícula, Térmica e 3D
+- **Editor**: foto do celular, antes/depois, miniaturas, favoritos, ajustes, texto, molduras, salvar e compartilhar
+- **Câmera com efeitos ao vivo na GPU**, gravação de vídeo e modo Instantâneo/Rolo
 - **Modo rolo**: 24 ou 36 poses (toque no contador antes da primeira foto). O filme fica travado até o fim do rolo
 - **Revelação**: quando o rolo enche, ele leva 60 minutos para revelar. Agitar (botão ou chacoalhar o celular) adianta 5 minutos. Também dá para rebobinar e revelar um rolo pela metade
 - **Galeria compacta**: 3 colunas de miniaturas por rolo; toque para ver a foto em tela cheia

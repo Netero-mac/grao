@@ -4,19 +4,40 @@ import android.graphics.Color
 import com.netero.grao.film.Film
 import com.netero.grao.film.Films
 
+enum class FxCategory(val label: String) {
+    BRILHO("Brilho"),
+    RETRO("Retrô"),
+    GLITCH("Glitch"),
+    LENTE("Lente"),
+    ARTE("Arte"),
+    MOVIMENTO("3D"),
+}
+
 /** Efeitos que podem ser empilhados por cima do filme. */
-enum class Fx(val label: String, val description: String) {
-    GRAIN("Grão", "Grão de filme extra"),
-    LEAK("Light leak", "Vazamento de luz laranja"),
-    GLOW("Brilho", "Glow suave nas luzes"),
-    SPARKLE("Diamante", "Estrelinhas nos pontos de luz"),
-    HALATION("Halação", "Brilho vermelho de filme de cinema"),
-    PRISM("Prisma", "Arco-íris nas bordas"),
-    RGB("RGB Split", "Canais de cor separados"),
-    GLITCH("Glitch", "Faixas deslocadas, imagem com defeito"),
-    VHS("VHS", "Linhas de fita e PLAY na tela"),
-    DUST("Poeira", "Poeira, fios e arranhões"),
-    MOTION3D("3D", "Foto em movimento 3D (vira vídeo)"),
+enum class Fx(val label: String, val description: String, val category: FxCategory) {
+    GLOW("Brilho", "Glow suave nas luzes", FxCategory.BRILHO),
+    SPARKLE("Diamante", "Estrelas de 4 e 8 pontas nos pontos de luz", FxCategory.BRILHO),
+    GLITTER("Glitter", "Purpurina piscando nas partes claras", FxCategory.BRILHO),
+    PARTY("Festa", "Luzes coloridas de balada flutuando", FxCategory.BRILHO),
+    SIDELIGHT("Luz lateral", "Luz rosa e laranja entrando pelo lado", FxCategory.BRILHO),
+    RAINBOW("Arco-íris", "Faixa de luz arco-íris na diagonal", FxCategory.BRILHO),
+    DREAM("Sonho", "Imagem suave e enevoada", FxCategory.BRILHO),
+    HALATION("Halação", "Brilho vermelho de filme de cinema", FxCategory.BRILHO),
+    GRAIN("Grão", "Grão de filme extra", FxCategory.RETRO),
+    LEAK("Light leak", "Vazamento de luz laranja", FxCategory.RETRO),
+    DUST("Poeira", "Poeira, fios e arranhões", FxCategory.RETRO),
+    VHS("VHS", "Linhas de fita e PLAY na tela", FxCategory.RETRO),
+    GLITCH("Glitch", "Faixas deslocadas, imagem com defeito", FxCategory.GLITCH),
+    RGB("RGB Split", "Canais de cor separados", FxCategory.GLITCH),
+    PRISM("Prisma", "Arco-íris nas bordas", FxCategory.GLITCH),
+    PIXEL("Pixel", "Pixels grandes de videogame antigo", FxCategory.GLITCH),
+    FISHEYE("Olho de peixe", "Lente curva de skate dos anos 90", FxCategory.LENTE),
+    MIRROR("Espelho", "Metade esquerda espelhada", FxCategory.LENTE),
+    KALEIDO("Caleidoscópio", "Imagem repetida em gomos", FxCategory.LENTE),
+    COMIC("Quadrinho", "Cores chapadas e contorno de desenho", FxCategory.ARTE),
+    HALFTONE("Retícula", "Pontinhos de impressão de revista", FxCategory.ARTE),
+    THERMAL("Térmica", "Câmera de calor", FxCategory.ARTE),
+    MOTION3D("3D", "Foto em movimento 3D (vira vídeo)", FxCategory.MOVIMENTO),
 }
 
 /** Ajustes manuais, de -1 a 1 (alguns só de 0 a 1). */
@@ -115,6 +136,19 @@ data class EffectParams(
             splitHighlight = high,
             splitAmount = f.splitAmount * m,
             vhsSoften = f.vhs && m > 0.5f || fx(Fx.VHS) > 0.5f,
+            glitter = fx(Fx.GLITTER),
+            party = fx(Fx.PARTY),
+            sideLight = fx(Fx.SIDELIGHT),
+            rainbow = fx(Fx.RAINBOW),
+            dream = (f.dream * m + fx(Fx.DREAM)).coerceIn(0f, 1f),
+            pixel = fx(Fx.PIXEL),
+            fisheye = fx(Fx.FISHEYE),
+            mirror = fx(Fx.MIRROR),
+            kaleido = fx(Fx.KALEIDO),
+            comic = fx(Fx.COMIC),
+            halftone = fx(Fx.HALFTONE),
+            thermal = fx(Fx.THERMAL),
+            duotone = if (f.duotone) m else 0f,
         )
     }
 
@@ -165,6 +199,19 @@ data class Uniforms(
     val splitHighlight: Int,
     val splitAmount: Float,
     val vhsSoften: Boolean,
+    val glitter: Float,
+    val party: Float,
+    val sideLight: Float,
+    val rainbow: Float,
+    val dream: Float,
+    val pixel: Float,
+    val fisheye: Float,
+    val mirror: Float,
+    val kaleido: Float,
+    val comic: Float,
+    val halftone: Float,
+    val thermal: Float,
+    val duotone: Float,
 ) {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)

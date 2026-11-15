@@ -69,6 +69,19 @@ uniform float uYDown;
 uniform sampler2D uDecal;
 uniform float uDecalOn;
 uniform vec2 uDepthOffset;
+uniform float uGlitter;
+uniform float uParty;
+uniform float uSideLight;
+uniform float uRainbow;
+uniform float uDream;
+uniform float uPixel;
+uniform float uFisheye;
+uniform float uMirror;
+uniform float uKaleido;
+uniform float uComic;
+uniform float uHalftone;
+uniform float uThermal;
+uniform float uDuotone;
 
 vec4 S(vec2 p) {
     return texture2D(uTex, (uTexMatrix * vec4(clamp(p, 0.0, 1.0), 0.0, 1.0)).xy);
@@ -80,6 +93,14 @@ float hash(vec2 p) {
 
 float lum(vec3 c) {
     return dot(c, vec3(0.299, 0.587, 0.114));
+}
+
+vec3 hue(float h) {
+    return clamp(abs(mod(h * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+}
+
+vec3 screen(vec3 a, vec3 b) {
+    return 1.0 - (1.0 - clamp(a, 0.0, 1.0)) * (1.0 - clamp(b, 0.0, 1.0));
 }
 
 vec3 grade(vec3 c) {
@@ -105,6 +126,34 @@ void main() {
     vec2 uv = vUv;
     float aspect = uRes.x / uRes.y;
     float imgY = mix(1.0 - uv.y, uv.y, uYDown);
+
+    // Lentes: olho de peixe, espelho, caleidoscópio, pixel
+    if (uFisheye > 0.0) {
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        float r = length(p);
+        float k = 1.0 + uFisheye * 0.9;
+        p *= (1.0 - uFisheye * 0.35) * (1.0 + uFisheye * 0.6 * r * r) / k * 1.25;
+        uv = p / vec2(aspect, 1.0) + 0.5;
+    }
+    if (uMirror > 0.5) {
+        uv.x = uv.x < 0.5 ? uv.x : 1.0 - uv.x;
+    }
+    if (uKaleido > 0.0) {
+        vec2 p = (uv - 0.5) * vec2(aspect, 1.0);
+        float seg = floor(4.0 + uKaleido * 6.0);
+        float ang = atan(p.y, p.x);
+        float r = length(p);
+        float s = 6.28318 / seg;
+        ang = mod(ang, s);
+        ang = abs(ang - s * 0.5);
+        p = vec2(cos(ang), sin(ang)) * r;
+        uv = p / vec2(aspect, 1.0) + 0.5;
+    }
+    if (uPixel > 0.0) {
+        float px = 4.0 + uPixel * 40.0;
+        vec2 cells = uRes / px;
+        uv = (floor(uv * cells) + 0.5) / cells;
+    }
 
     // Glitch: faixas horizontais deslocadas
     if (uGlitch > 0.0) {
@@ -157,7 +206,60 @@ void main() {
         col += (col - b) * uSharpen * 1.5;
     }
 
+    // Sonho: desfoque suave misturado
+    if (uDream > 0.0) {
+        vec3 b = vec3(0.0);
+        for (int i = 0; i < 8; i++) {
+            float a = float(i) * 0.7854;
+            b += S(uv + vec2(cos(a), sin(a)) * vec2(1.0 / aspect, 1.0) * 0.008).rgb;
+        }
+        b /= 8.0;
+        col = mix(col, screen(col, b * 0.6), uDream * 0.8);
+    }
+
     col = grade(col);
+
+    // Duotone: duas cores, uma nas sombras e outra nas luzes
+    if (uDuotone > 0.0) {
+        col = mix(col, mix(uSplitS, uSplitH, smoothstep(0.05, 0.95, lum(col))), uDuotone);
+    }
+
+    // Térmica: mapa de calor pela luminância
+    if (uThermal > 0.0) {
+        float l = lum(clamp(col, 0.0, 1.0));
+        vec3 th = l < 0.25 ? mix(vec3(0.05, 0.0, 0.3), vec3(0.45, 0.0, 0.7), l * 4.0)
+                : l < 0.5 ? mix(vec3(0.45, 0.0, 0.7), vec3(0.95, 0.1, 0.2), (l - 0.25) * 4.0)
+                : l < 0.75 ? mix(vec3(0.95, 0.1, 0.2), vec3(1.0, 0.75, 0.0), (l - 0.5) * 4.0)
+                : mix(vec3(1.0, 0.75, 0.0), vec3(1.0, 1.0, 0.9), (l - 0.75) * 4.0);
+        col = mix(col, th, uThermal);
+    }
+
+    // Quadrinho: cores chapadas + contorno
+    if (uComic > 0.0) {
+        float levels = 6.0 - uComic * 2.0;
+        vec3 poster = floor(clamp(col, 0.0, 1.0) * levels + 0.5) / levels;
+        vec2 e = t * 1.5;
+        float lx = lum(S(uv + vec2(e.x, 0.0)).rgb) - lum(S(uv - vec2(e.x, 0.0)).rgb);
+        float ly = lum(S(uv + vec2(0.0, e.y)).rgb) - lum(S(uv - vec2(0.0, e.y)).rgb);
+        float edge = smoothstep(0.08, 0.25, length(vec2(lx, ly)));
+        poster = mix(poster, poster * 1.2, 0.3);
+        col = mix(col, poster * (1.0 - edge * 0.9), uComic);
+    }
+
+    // Retícula: pontos de impressão
+    if (uHalftone > 0.0) {
+        float cell = max(5.0, uRes.y / 140.0);
+        vec2 pp = uv * uRes;
+        mat2 rot = mat2(0.7071, -0.7071, 0.7071, 0.7071);
+        vec2 q = rot * pp / cell;
+        vec2 f = fract(q) - 0.5;
+        float l = lum(clamp(col, 0.0, 1.0));
+        float r = sqrt(1.0 - l) * 0.62;
+        float dotm = 1.0 - smoothstep(r - 0.06, r + 0.06, length(f));
+        vec3 paper = vec3(0.97, 0.95, 0.9);
+        vec3 ink = col * 0.55;
+        col = mix(col, mix(paper, ink, dotm), uHalftone);
+    }
 
     // Brilho e halação: luzes fortes "vazam" em volta
     float glowAmt = uGlow + uHalation;
@@ -195,6 +297,45 @@ void main() {
         vec2 cell = floor(uv * uRes / 6.0);
         float tw = step(0.997, hash(cell + uSeed)) * step(0.55, lum(col));
         col += vec3(1.0, 0.97, 0.92) * (s * 2.2 + tw * 0.8) * uSparkle;
+    }
+
+    // Glitter: purpurina piscando
+    if (uGlitter > 0.0) {
+        vec2 cell = floor(uv * uRes / 3.0);
+        float h = hash(cell + uSeed * 1.3);
+        float blink = 0.5 + 0.5 * sin(uTime * 9.0 + h * 50.0);
+        float on = step(0.985 - uGlitter * 0.02, h) * smoothstep(0.3, 0.7, lum(col));
+        col += mix(vec3(1.0), hue(h * 7.0), 0.35) * on * blink * (0.9 + uGlitter);
+    }
+
+    // Festa: luzes coloridas flutuando
+    if (uParty > 0.0) {
+        vec3 lights = vec3(0.0);
+        for (int i = 0; i < 6; i++) {
+            float fi = float(i);
+            vec2 c = vec2(
+                0.5 + 0.45 * sin(uTime * (0.35 + fi * 0.07) + fi * 2.1 + uSeed),
+                0.5 + 0.45 * cos(uTime * (0.3 + fi * 0.05) + fi * 1.7)
+            );
+            vec2 d = (uv - c) * vec2(aspect, 1.0);
+            float g = smoothstep(0.38, 0.0, length(d));
+            lights += hue(fract(fi / 6.0 + uTime * 0.05)) * g * g;
+        }
+        col = screen(col, lights * uParty * 0.85);
+    }
+
+    // Luz lateral: rosa e laranja entrando pela esquerda
+    if (uSideLight > 0.0) {
+        float g = pow(clamp(1.0 - uv.x * 1.3, 0.0, 1.0), 1.6);
+        vec3 lc = mix(vec3(1.0, 0.25, 0.55), vec3(1.0, 0.6, 0.2), imgY);
+        col = screen(col, lc * g * uSideLight * 0.9);
+    }
+
+    // Arco-íris diagonal
+    if (uRainbow > 0.0) {
+        float d = (uv.x + imgY) * 0.5;
+        float band = smoothstep(0.35, 0.5, d) * smoothstep(0.75, 0.5, d);
+        col = screen(col, hue(fract(d * 2.2)) * band * uRainbow * 0.6);
     }
 
     // Light leak (mistura "screen")

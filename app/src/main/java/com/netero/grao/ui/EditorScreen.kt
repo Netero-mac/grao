@@ -63,6 +63,7 @@ import com.netero.grao.gl.Adj
 import com.netero.grao.gl.EffectParams
 import com.netero.grao.gl.Frame
 import com.netero.grao.gl.Fx
+import com.netero.grao.gl.FxCategory
 import com.netero.grao.gl.GlEngine
 import com.netero.grao.gl.TextPos
 import com.netero.grao.gl.TextStyleKind
@@ -147,6 +148,19 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
         for (f in Films.all) {
             try {
                 thumbs[f.id] = GlEngine.render(base, EffectParams(filmId = f.id, seed = 3L), maxSide = 200, withFrame = false).asImageBitmap()
+            } catch (t: Throwable) {
+                break
+            }
+        }
+    }
+
+    val fxThumbs = remember(source) { mutableStateMapOf<Fx, ImageBitmap>() }
+    LaunchedEffect(thumbBase) {
+        val base = thumbBase ?: return@LaunchedEffect
+        for (fx in Fx.values()) {
+            try {
+                val p = EffectParams(filterMix = 0f, seed = 5L).withFx(fx, if (fx == Fx.MIRROR) 1f else 0.75f)
+                fxThumbs[fx] = GlEngine.render(base, p, maxSide = 200, time = 1.3f, withFrame = false).asImageBitmap()
             } catch (t: Throwable) {
                 break
             }
@@ -258,7 +272,7 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
         ) {
             when (tab) {
                 0 -> FiltersTab(vm, params, thumbs) { params = it }
-                1 -> EffectsPanel(effects = params.effects, onChange = { fx, v -> params = params.withFx(fx, v) })
+                1 -> EffectsTab(params, fxThumbs) { params = it }
                 2 -> AdjustTab(params) { params = it }
                 3 -> TextTab(params) { params = it }
                 else -> FrameTab(params) { params = it }
@@ -427,5 +441,86 @@ private fun FrameTab(params: EffectParams, onChange: (EffectParams) -> Unit) {
     Text("A moldura aparece no preview e na foto salva.", color = GraoColors.TextoClaro, fontSize = 12.sp)
     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(Frame.values().toList()) { f -> Chip(f.label, params.frame == f) { onChange(params.copy(frame = f)) } }
+    }
+}
+
+
+@Composable
+private fun EffectsTab(params: EffectParams, thumbs: Map<Fx, ImageBitmap>, onChange: (EffectParams) -> Unit) {
+    var category by remember { mutableStateOf<FxCategory?>(null) }
+    var selected by remember { mutableStateOf<Fx?>(null) }
+    val active = params.effects.filterValues { it > 0f }.keys
+    val list = Fx.values().filter { category == null || it.category == category }
+
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        item { Chip("Todos", category == null) { category = null } }
+        items(FxCategory.values().toList()) { c -> Chip(c.label, category == c) { category = c } }
+        if (active.isNotEmpty()) {
+            item { Chip("Limpar (${active.size})", false) { onChange(params.copy(effects = emptyMap())) } }
+        }
+    }
+
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        items(list, key = { it.name }) { fx ->
+            val on = fx in active
+            Column(
+                Modifier
+                    .width(72.dp)
+                    .clickable {
+                        if (selected == fx && on) {
+                            onChange(params.withFx(fx, 0f))
+                        } else {
+                            selected = fx
+                            if (!on) onChange(params.withFx(fx, if (fx == Fx.MIRROR) 1f else 0.6f))
+                        }
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    Modifier
+                        .size(72.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(
+                            2.dp,
+                            when {
+                                fx == selected -> GraoColors.Laranja
+                                on -> GraoColors.Ambar
+                                else -> Color.Transparent
+                            },
+                            RoundedCornerShape(8.dp),
+                        )
+                        .background(GraoColors.Grafite),
+                ) {
+                    thumbs[fx]?.let {
+                        Image(it, contentDescription = fx.label, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                    }
+                    if (on) {
+                        Box(
+                            Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(4.dp)
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(GraoColors.Laranja)
+                        )
+                    }
+                }
+                Text(
+                    fx.label,
+                    color = if (on) GraoColors.Laranja else GraoColors.Creme,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+    }
+
+    val sel = selected
+    if (sel != null) {
+        AmountSlider("${sel.label}: ${sel.description}", params.fx(sel)) { onChange(params.withFx(sel, it)) }
+    } else {
+        Text("Toque num efeito para ligar. Toque de novo para desligar. Dá para empilhar vários.", color = GraoColors.TextoClaro, fontSize = 12.sp)
     }
 }
