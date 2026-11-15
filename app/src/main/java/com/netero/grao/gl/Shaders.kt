@@ -83,6 +83,7 @@ uniform float uHalftone;
 uniform float uThermal;
 uniform float uDuotone;
 uniform float uGamma;
+uniform float uPreGamma;
 uniform float uLightLine;
 
 vec4 S(vec2 p) {
@@ -106,7 +107,7 @@ vec3 screen(vec3 a, vec3 b) {
 }
 
 vec3 grade(vec3 c) {
-    vec3 f = (uColorMat * vec4(c, 1.0)).rgb + uColorOff.rgb;
+    vec3 f = (uColorMat * vec4(pow(clamp(c, 0.0, 1.0), vec3(uPreGamma)), 1.0)).rgb + uColorOff.rgb;
     f = pow(clamp(f, 0.0, 1.0), vec3(uGamma));
     c = mix(c, f, uFilterMix);
 

@@ -85,6 +85,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import coil.compose.AsyncImage
 import com.netero.grao.GraoViewModel
 import com.netero.grao.film.Film
+import com.netero.grao.film.FilmCategory
 import com.netero.grao.film.Films
 import com.netero.grao.gl.CameraProcessor
 import com.netero.grao.gl.Fx
@@ -481,9 +482,23 @@ private fun Pill(label: String, active: Boolean, onClick: () -> Unit) {
 private fun FilmChips(vm: GraoViewModel) {
     var pending by remember { mutableStateOf<Film?>(null) }
 
-    // Todos os filmes aparecem sempre. Com o rolo em uso, trocar pede confirmação.
+    // Abas de categoria em cima, filmes daquela categoria embaixo
+    val groups = buildList {
+        val favs = Films.all.filter { it.id in vm.favorites }
+        if (favs.isNotEmpty()) add("Favoritos" to favs)
+        FilmCategory.values().forEach { c ->
+            val list = Films.all.filter { it.category == c }
+            if (list.isNotEmpty()) add(c.label to list)
+        }
+    }
+    var chosen by remember { mutableStateOf<String?>(null) }
+    val defaultTab = groups.indexOfFirst { g -> g.first != "Favoritos" && g.second.any { it.id == vm.activeFilm.id } }.coerceAtLeast(0)
+    val tab = groups.indexOfFirst { it.first == chosen }.takeIf { it >= 0 } ?: defaultTab
+    CategoryTabs(groups.map { it.first to it.second.size }, tab) { chosen = groups[it].first }
+
+    // Com o rolo em uso, trocar de filme pede confirmação.
     LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp), contentPadding = PaddingValues(vertical = 2.dp)) {
-        items(Films.all, key = { it.id }) { f ->
+        items(groups.getOrNull(tab)?.second ?: emptyList(), key = { it.id }) { f ->
             val selected = f.id == vm.activeFilm.id
             Box(
                 Modifier

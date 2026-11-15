@@ -151,6 +151,7 @@ data class EffectParams(
             thermal = fx(Fx.THERMAL),
             duotone = if (f.duotone) m else 0f,
             gamma = f.gamma,
+            preGamma = f.preGamma,
             lightLine = fx(Fx.LIGHTLINE),
         )
     }
@@ -216,6 +217,7 @@ data class Uniforms(
     val thermal: Float,
     val duotone: Float,
     val gamma: Float,
+    val preGamma: Float,
     val lightLine: Float,
 ) {
     override fun equals(other: Any?) = this === other

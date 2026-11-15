@@ -150,3 +150,45 @@ fun SegmentedTabs(options: List<String>, selected: Int, onSelect: (Int) -> Unit)
 
 @Composable
 fun Spacer8() = Box(Modifier.width(8.dp))
+
+/**
+ * Abas de categoria em texto (diferente dos itens): a ativa fica laranja e sublinhada.
+ * Cada aba mostra quantos itens tem.
+ */
+@Composable
+fun CategoryTabs(tabs: List<Pair<String, Int>>, selected: Int, onSelect: (Int) -> Unit) {
+    LazyRow(horizontalArrangement = Arrangement.spacedBy(18.dp), contentPadding = PaddingValues(horizontal = 2.dp)) {
+        items(tabs.size) { i ->
+            val (label, count) = tabs[i]
+            val on = i == selected
+            Column(
+                Modifier
+                    .height(40.dp)
+                    .clickable { onSelect(i) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        label.uppercase(),
+                        color = if (on) GraoColors.Laranja else GraoColors.TextoClaro,
+                        fontSize = 13.sp,
+                        fontWeight = if (on) FontWeight.Bold else FontWeight.Medium,
+                        letterSpacing = 1.sp,
+                    )
+                    Text(
+                        " $count",
+                        color = if (on) GraoColors.Laranja.copy(alpha = 0.7f) else GraoColors.TextoClaro.copy(alpha = 0.5f),
+                        fontSize = 10.sp,
+                    )
+                }
+                Box(
+                    Modifier
+                        .padding(top = 4.dp)
+                        .size(width = 18.dp, height = 2.dp)
+                        .background(if (on) GraoColors.Laranja else Color.Transparent)
+                )
+            }
+        }
+    }
+}

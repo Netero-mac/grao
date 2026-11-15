@@ -301,22 +301,15 @@ private fun FiltersTab(
     thumbs: Map<String, ImageBitmap>,
     onChange: (EffectParams) -> Unit,
 ) {
-    // null = todos; "fav" = favoritos
-    var category by remember { mutableStateOf<Any?>(null) }
-    val films = Films.all.filter {
-        when (val c = category) {
-            null -> true
-            "fav" -> it.id in vm.favorites
-            is FilmCategory -> it.category == c
-            else -> true
-        }
+    val groups = buildList {
+        add("Favoritos" to Films.all.filter { it.id in vm.favorites })
+        FilmCategory.values().forEach { c -> add(c.label to Films.all.filter { it.category == c }) }
     }
-
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        item { Chip("Todos", category == null) { category = null } }
-        item { Chip("Favoritos", category == "fav") { category = "fav" } }
-        items(FilmCategory.values().toList()) { c -> Chip(c.label, category == c) { category = c } }
+    var tab by remember {
+        mutableStateOf(groups.indexOfFirst { g -> g.first != "Favoritos" && g.second.any { it.id == params.filmId } }.coerceAtLeast(1))
     }
+    CategoryTabs(groups.map { it.first to it.second.size }, tab) { tab = it }
+    val films = groups.getOrNull(tab)?.second ?: emptyList()
 
     if (films.isEmpty()) {
         Box(Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) {
@@ -447,16 +440,18 @@ private fun FrameTab(params: EffectParams, onChange: (EffectParams) -> Unit) {
 
 @Composable
 private fun EffectsTab(params: EffectParams, thumbs: Map<Fx, ImageBitmap>, onChange: (EffectParams) -> Unit) {
-    var category by remember { mutableStateOf<FxCategory?>(null) }
     var selected by remember { mutableStateOf<Fx?>(null) }
     val active = params.effects.filterValues { it > 0f }.keys
-    val list = Fx.values().filter { category == null || it.category == category }
-
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        item { Chip("Todos", category == null) { category = null } }
-        items(FxCategory.values().toList()) { c -> Chip(c.label, category == c) { category = c } }
-        if (active.isNotEmpty()) {
-            item { Chip("Limpar (${active.size})", false) { onChange(params.copy(effects = emptyMap())) } }
+    val groups = buildList {
+        add("Ativos" to Fx.values().filter { it in active })
+        FxCategory.values().forEach { c -> add(c.label to Fx.values().filter { it.category == c }) }
+    }
+    var tab by remember { mutableStateOf(1) }
+    CategoryTabs(groups.map { it.first to it.second.size }, tab) { tab = it }
+    val list = groups.getOrNull(tab)?.second ?: emptyList()
+    if (active.isNotEmpty()) {
+        TextButton(onClick = { onChange(params.copy(effects = emptyMap())) }) {
+            Text("Desligar todos (${active.size})", color = GraoColors.TextoClaro, fontSize = 12.sp)
         }
     }
 

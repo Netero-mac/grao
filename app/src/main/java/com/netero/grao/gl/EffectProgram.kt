@@ -135,6 +135,7 @@ class EffectProgram(private val oes: Boolean) {
         f("uThermal", u.thermal)
         f("uDuotone", u.duotone)
         f("uGamma", u.gamma)
+        f("uPreGamma", u.preGamma)
         f("uLightLine", u.lightLine)
 
         quad.position(0)
