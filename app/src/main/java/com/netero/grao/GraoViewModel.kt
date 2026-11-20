@@ -43,6 +43,14 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var lastPhoto by mutableStateOf<File?>(null)
         private set
+    var videos by mutableStateOf<List<File>>(emptyList())
+        private set
+
+    fun refreshVideos() {
+        viewModelScope.launch {
+            videos = withContext(Dispatchers.IO) { com.netero.grao.data.MediaSaver.listVideos(getApplication()) }
+        }
+    }
 
     var selectedFilmId by mutableStateOf(Films.all.first().id)
     var capacity by mutableIntStateOf(36)
@@ -81,6 +89,7 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
 
     init {
         refresh()
+        refreshVideos()
         // Liga a GPU antes da primeira foto para ela não demorar mais
         viewModelScope.launch {
             try {

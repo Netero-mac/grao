@@ -70,6 +70,20 @@ object MediaSaver {
             }
         }.let { if (it.config == Bitmap.Config.ARGB_8888) it else it.copy(Bitmap.Config.ARGB_8888, false) }
 
+    /** Pasta onde o Grão guarda os próprios vídeos (aparecem na aba Vídeos da galeria). */
+    fun videoDir(context: Context): File =
+        File(context.getExternalFilesDir(null) ?: context.filesDir, "videos").apply { mkdirs() }
+
+    fun listVideos(context: Context): List<File> =
+        videoDir(context).listFiles { f -> f.extension == "mp4" && f.length() > 0 }
+            ?.sortedByDescending { it.lastModified() } ?: emptyList()
+
+    /** Compartilha um arquivo do app (vídeo ou foto) via FileProvider. */
+    fun shareFile(context: Context, file: File, mime: String) {
+        val uri = androidx.core.content.FileProvider.getUriForFile(context, context.packageName + ".files", file)
+        share(context, uri, mime)
+    }
+
     fun share(context: Context, uri: Uri, mime: String = "image/jpeg") {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = mime

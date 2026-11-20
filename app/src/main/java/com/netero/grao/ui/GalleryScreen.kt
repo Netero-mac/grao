@@ -1,6 +1,20 @@
 package com.netero.grao.ui
 
 import androidx.compose.foundation.background
+import android.widget.MediaController
+import android.widget.VideoView
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.viewinterop.AndroidView
+import coil.decode.VideoFrameDecoder
+import coil.request.videoFrameMillis
+import com.netero.grao.data.MediaSaver
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,8 +63,12 @@ import java.io.File
 @Composable
 fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (File) -> Unit = {}) {
     val developed = vm.rolls.filter { it.developed }
+    val videos = vm.videos
+    LaunchedEffect(Unit) { vm.refreshVideos() }
     var selectedId by remember { mutableStateOf<String?>(null) }
-    val roll = developed.firstOrNull { it.id == selectedId } ?: developed.firstOrNull()
+    val showVideos = selectedId == VIDEOS || (developed.isEmpty() && videos.isNotEmpty())
+    val roll = if (showVideos) null else developed.firstOrNull { it.id == selectedId } ?: developed.firstOrNull()
+    var playing by remember { mutableStateOf<File?>(null) }
     val photos by produceState(initialValue = emptyList<File>(), roll?.id, roll?.shots) {
         value = (roll?.let { vm.photosOf(it) } ?: emptyList()).reversed()
     }
@@ -63,7 +81,9 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (Fil
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text("Galeria", fontFamily = TituloFont, fontWeight = FontWeight.SemiBold, fontSize = 34.sp, color = GraoColors.Creme)
-            if (roll != null) {
+            if (showVideos) {
+                Text("${videos.size} VÍDEOS", fontFamily = MonoFont, fontSize = 12.sp, color = GraoColors.Ambar)
+            } else if (roll != null) {
                 Text(
                     "${Films.byId(roll.filmId).name} · ${roll.shots}".uppercase(),
                     fontFamily = MonoFont, fontSize = 12.sp, color = GraoColors.Ambar,
@@ -71,7 +91,7 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (Fil
             }
         }
 
-        if (roll == null) {
+        if (roll == null && !showVideos) {
             Column(
                 Modifier.fillMaxWidth().weight(1f).padding(32.dp),
                 verticalArrangement = Arrangement.Center,
@@ -90,12 +110,31 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (Fil
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (videos.isNotEmpty()) {
+                item(key = VIDEOS) {
+                    Chip(label = "Vídeos ${videos.size}", selected = showVideos) { selectedId = VIDEOS }
+                }
+            }
             items(developed, key = { it.id }) { r ->
                 Chip(
                     label = if (r.number == 0) "Instantâneas" else "Rolo %02d".format(r.number),
-                    selected = r.id == roll.id,
+                    selected = !showVideos && r.id == roll?.id,
                 ) { selectedId = r.id }
             }
+        }
+
+        if (showVideos) {
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(3),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                items(videos, key = { it.path }) { file -> VideoThumb(file) { playing = file } }
+            }
+            playing?.let { f -> VideoPlayer(f) { playing = null } }
+            return@Column
         }
 
         LazyVerticalGrid(
@@ -114,6 +153,86 @@ fun GalleryScreen(vm: GraoViewModel, modifier: Modifier = Modifier, onEdit: (Fil
             viewing = null
             onEdit(f)
         }) { viewing = null }
+    }
+}
+
+private const val VIDEOS = "__videos__"
+
+@Composable
+private fun VideoThumb(file: File, onClick: () -> Unit) {
+    val context = LocalContext.current
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .background(GraoColors.Grafite)
+            .clickable(onClickLabel = "Assistir vídeo", onClick = onClick),
+    ) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(file)
+                .decoderFactory(VideoFrameDecoder.Factory())
+                .videoFrameMillis(500)
+                .size(360)
+                .crossfade(true)
+                .build(),
+            contentDescription = "Vídeo",
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+        Box(
+            Modifier
+                .align(Alignment.Center)
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.5f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Filled.PlayArrow, contentDescription = null, tint = Color.White)
+        }
+        if (file.name.startsWith("grao_3d")) {
+            Text(
+                "3D",
+                color = GraoColors.Ambar,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.align(Alignment.TopEnd).padding(6.dp),
+            )
+        }
+    }
+}
+
+/** Toca o vídeo dentro do app, com controles do Android e botão de compartilhar. */
+@Composable
+private fun VideoPlayer(file: File, onClose: () -> Unit) {
+    val context = LocalContext.current
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black)) {
+            AndroidView(
+                factory = { ctx ->
+                    VideoView(ctx).apply {
+                        setVideoPath(file.path)
+                        val controller = MediaController(ctx)
+                        controller.setAnchorView(this)
+                        setMediaController(controller)
+                        setOnPreparedListener { mp ->
+                            mp.isLooping = true
+                            start()
+                        }
+                    }
+                },
+                onRelease = { it.stopPlayback() },
+                modifier = Modifier.align(Alignment.Center).fillMaxWidth().padding(vertical = 64.dp),
+            )
+            TextButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
+                Text("Fechar", color = GraoColors.Creme)
+            }
+            Button(
+                onClick = { MediaSaver.shareFile(context, file, "video/mp4") },
+                colors = ButtonDefaults.buttonColors(containerColor = GraoColors.Laranja, contentColor = GraoColors.Preto),
+                modifier = Modifier.align(Alignment.TopEnd).padding(8.dp),
+            ) { Text("Compartilhar", fontWeight = FontWeight.SemiBold) }
+        }
     }
 }
 

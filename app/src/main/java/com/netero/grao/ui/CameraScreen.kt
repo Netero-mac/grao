@@ -275,7 +275,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
             return
         }
         // Grava primeiro num arquivo do próprio app (sempre funciona) e depois copia para a galeria
-        val dir = File(context.getExternalFilesDir(null) ?: context.filesDir, "videos").apply { mkdirs() }
+        val dir = MediaSaver.videoDir(context)
         val file = File(dir, "grao_${System.currentTimeMillis()}.mp4")
         val opts = FileOutputOptions.Builder(file).build()
         var pending = videoCapture.output.prepareRecording(context, opts)
@@ -299,12 +299,12 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     } else {
                         scope.launch {
                             val uri = withContext(Dispatchers.IO) { MediaSaver.saveVideoFile(context, file, file.name) }
-                            if (uri != null) {
-                                file.delete()
-                                Toast.makeText(context, "Vídeo salvo na galeria (Movies/Grao)", Toast.LENGTH_LONG).show()
-                            } else {
-                                Toast.makeText(context, "Vídeo salvo em ${file.parentFile?.path}", Toast.LENGTH_LONG).show()
-                            }
+                            vm.refreshVideos()
+                            Toast.makeText(
+                                context,
+                                if (uri != null) "Vídeo salvo (aba Vídeos da galeria e Movies/Grao)" else "Vídeo salvo na aba Vídeos da galeria",
+                                Toast.LENGTH_LONG,
+                            ).show()
                         }
                     }
                 }

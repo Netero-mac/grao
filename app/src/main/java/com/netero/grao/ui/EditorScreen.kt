@@ -176,11 +176,12 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
             try {
                 val motion = params.fx(Fx.MOTION3D)
                 if (motion > 0f) {
-                    val file = File(context.cacheDir, "grao_3d.mp4")
+                    val file = File(MediaSaver.videoDir(context), "grao_3d_${System.currentTimeMillis()}.mp4")
                     GlEngine.renderMotion(img, params.withFx(Fx.MOTION3D, 0f), file, amount = 0.4f + motion)
-                    val uri = withContext(Dispatchers.IO) { MediaSaver.saveVideoFile(context, file) }
+                    val uri = withContext(Dispatchers.IO) { MediaSaver.saveVideoFile(context, file, file.name) }
+                    vm.refreshVideos()
                     if (uri == null) toast(context, "Não deu para salvar o vídeo")
-                    else if (share) MediaSaver.share(context, uri, "video/mp4")
+                    else if (share) MediaSaver.shareFile(context, file, "video/mp4")
                     else toast(context, "Vídeo 3D salvo em Movies/Grao")
                 } else {
                     val out = GlEngine.render(img, params, maxSide = 3000)
