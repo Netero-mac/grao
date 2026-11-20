@@ -11,6 +11,17 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraEffect
+import android.hardware.camera2.CameraCaptureSession
+import android.hardware.camera2.CameraCharacteristics
+import android.hardware.camera2.CaptureRequest
+import android.hardware.camera2.CaptureResult
+import android.hardware.camera2.TotalCaptureResult
+import android.os.Build
+import androidx.annotation.OptIn
+import androidx.camera.camera2.interop.Camera2CameraInfo
+import androidx.camera.camera2.interop.Camera2Interop
+import androidx.camera.camera2.interop.ExperimentalCamera2Interop
+import java.util.concurrent.atomic.AtomicReference
 import androidx.camera.core.Camera
 import androidx.camera.core.FocusMeteringAction
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -151,9 +162,12 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     var recording by remember { mutableStateOf<Recording?>(null) }
     var recSeconds by remember { mutableIntStateOf(0) }
 
+    // Zoom que a câmera realmente aplicou na última foto (lido do resultado da captura)
+    val stillZoom = remember { AtomicReference<Float?>(null) }
+    val activeArray = remember { AtomicReference<android.graphics.Rect?>(null) }
     val imageCapture = remember {
         // ~5 MP basta: a foto final tem no máximo 2400 px. Sensor de 50 MP deixava tudo lento.
-        ImageCapture.Builder()
+        val builder = ImageCapture.Builder()
             .setCaptureMode(ImageCapture.CAPTURE_MODE_MINIMIZE_LATENCY)
             .setResolutionSelector(
                 ResolutionSelector.Builder()
@@ -163,7 +177,8 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     )
                     .build()
             )
-            .build()
+        watchStillZoom(builder, stillZoom, activeArray)
+        builder.build()
     }
     val videoCapture = remember {
         val recorder = Recorder.Builder()
@@ -205,6 +220,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         fun bind(useCases: List<UseCase>, eff: CameraEffect?): Boolean {
             val c = tryBind(provider, lifecycleOwner, selector, useCases, eff) ?: return false
             camera = c
+            activeArray.set(sensorArea(c))
             val z = c.cameraInfo.zoomState.value
             minZoom = z?.minZoomRatio ?: 1f
             maxZoom = z?.maxZoomRatio ?: 1f
@@ -241,6 +257,8 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     fun shoot() {
         if (!hasCamera) return
         val mirror = lensFacing == CameraSelector.LENS_FACING_FRONT
+        val requestedZoom = zoom
+        stillZoom.set(null)
         val main = ContextCompat.getMainExecutor(context)
         imageCapture.flashMode = if (vm.flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
         sound.play(MediaActionSound.SHUTTER_CLICK)
@@ -253,7 +271,11 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 val bitmap = decodeFast(image)
                 val rotation = image.imageInfo.rotationDegrees
                 image.close()
-                main.execute { vm.onCaptured(bitmap, rotation, mirror) }
+                // Se o celular não aplicou o zoom na foto, recorta o centro na mesma proporção do visor
+                val applied = stillZoom.get()
+                val crop = if (requestedZoom > 1.02f) requestedZoom / (applied ?: 1f) else 1f
+                Log.i("Grao", "zoom pedido=$requestedZoom aplicado=$applied recorte=$crop")
+                main.execute { vm.onCaptured(bitmap, rotation, mirror, crop) }
             }
 
             override fun onError(exception: ImageCaptureException) {
@@ -556,6 +578,40 @@ private fun videoErrorText(code: Int): String = when (code) {
     VideoRecordEvent.Finalize.ERROR_FILE_SIZE_LIMIT_REACHED -> "limite de tamanho atingido"
     VideoRecordEvent.Finalize.ERROR_RECORDER_ERROR -> "erro do gravador"
     else -> "código $code"
+}
+
+/** Escuta os resultados da câmera para saber o zoom real de cada foto. */
+@OptIn(ExperimentalCamera2Interop::class)
+private fun watchStillZoom(
+    builder: ImageCapture.Builder,
+    stillZoom: AtomicReference<Float?>,
+    activeArray: AtomicReference<android.graphics.Rect?>,
+) {
+    Camera2Interop.Extender(builder).setSessionCaptureCallback(object : CameraCaptureSession.CaptureCallback() {
+        override fun onCaptureCompleted(session: CameraCaptureSession, request: CaptureRequest, result: TotalCaptureResult) {
+            val intent = result.get(CaptureResult.CONTROL_CAPTURE_INTENT)
+            if (intent != CaptureRequest.CONTROL_CAPTURE_INTENT_STILL_CAPTURE &&
+                intent != CaptureRequest.CONTROL_CAPTURE_INTENT_ZERO_SHUTTER_LAG
+            ) return
+            var z = 1f
+            if (Build.VERSION.SDK_INT >= 30) result.get(CaptureResult.CONTROL_ZOOM_RATIO)?.let { z *= it }
+            val crop = result.get(CaptureResult.SCALER_CROP_REGION)
+            val area = activeArray.get()
+            if (crop != null && area != null && crop.width() > 0) {
+                val cz = area.width().toFloat() / crop.width()
+                if (cz > 1.02f) z *= cz
+            }
+            stillZoom.set(z)
+        }
+    })
+}
+
+@OptIn(ExperimentalCamera2Interop::class)
+private fun sensorArea(camera: Camera): android.graphics.Rect? = try {
+    Camera2CameraInfo.from(camera.cameraInfo)
+        .getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
+} catch (e: Exception) {
+    null
 }
 
 /** Decodifica o JPEG já reduzido (bem mais rápido que decodificar inteiro e reduzir depois). */

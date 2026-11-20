@@ -146,7 +146,7 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
         capacity = if (capacity == 36) 24 else 36
     }
 
-    fun onCaptured(bitmap: Bitmap, rotation: Int, mirror: Boolean) {
+    fun onCaptured(bitmap: Bitmap, rotation: Int, mirror: Boolean, zoomCrop: Float = 1f) {
         val params = cameraParams.copy(seed = System.nanoTime(), autoLeak = true)
         val cap = capacity
         val instant = instantMode
@@ -156,7 +156,9 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
                 quickThumb = withContext(Dispatchers.Default) {
                     FilmProcessor.rotate(GlEngine.fit(bitmap, 240), rotation, mirror)
                 }
-                val rotated = withContext(Dispatchers.Default) { FilmProcessor.rotate(bitmap, rotation, mirror) }
+                val rotated = withContext(Dispatchers.Default) {
+                    FilmProcessor.rotate(centerCrop(bitmap, zoomCrop), rotation, mirror)
+                }
                 val processed = try {
                     GlEngine.render(rotated, params)
                 } catch (t: Throwable) {
@@ -177,6 +179,14 @@ class GraoViewModel(app: Application) : AndroidViewModel(app) {
                 refresh()
             }
         }
+    }
+
+    /** Recorta o centro da imagem (zoom digital) quando a câmera não aplicou o zoom na foto. */
+    private fun centerCrop(b: Bitmap, factor: Float): Bitmap {
+        if (factor <= 1.02f) return b
+        val w = (b.width / factor).toInt().coerceAtLeast(1)
+        val h = (b.height / factor).toInt().coerceAtLeast(1)
+        return Bitmap.createBitmap(b, (b.width - w) / 2, (b.height - h) / 2, w, h)
     }
 
     fun rewind() {
