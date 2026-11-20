@@ -16,6 +16,7 @@ import androidx.camera.core.FocusMeteringAction
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
@@ -133,7 +134,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
 
     var lensFacing by remember { mutableIntStateOf(CameraSelector.LENS_FACING_BACK) }
     var videoMode by remember { mutableStateOf(false) }
-    var showFx by remember { mutableStateOf(false) }
+    var panel by remember { mutableStateOf(0) } // 0 nenhum, 1 filtros, 2 efeitos
     var videoAvailable by remember { mutableStateOf(true) }
     var videoWithEffects by remember { mutableStateOf(true) }
     var camera by remember { mutableStateOf<Camera?>(null) }
@@ -334,6 +335,10 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     .pointerInput(camera) {
                         detectTapGestures(
                             onTap = { o ->
+                                if (panel != 0) {
+                                    panel = 0
+                                    return@detectTapGestures
+                                }
                                 val cam = camera ?: return@detectTapGestures
                                 val point = previewView.meteringPointFactory.createPoint(o.x, o.y)
                                 cam.cameraControl.startFocusAndMetering(
@@ -380,56 +385,45 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         }
         Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = flash.value)))
 
-        // Topo
-        Column(
+        // Topo: só os botões, pequenos
+        Box(
             Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.7f), Color.Transparent)))
+                .background(Brush.verticalGradient(listOf(Color.Black.copy(alpha = 0.55f), Color.Transparent)))
                 .systemBarsPadding()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 12.dp, vertical = 6.dp),
         ) {
             TopBar(vm, recording != null, recSeconds)
-            Text(
-                film.name.uppercase(),
-                color = GraoColors.Creme,
-                fontSize = 11.sp,
-                letterSpacing = 1.5.sp,
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(GraoColors.Preto.copy(alpha = 0.55f))
-                    .padding(horizontal = 8.dp, vertical = 4.dp),
-            )
         }
 
-        // Base
+        // Base: uma linha de controles + disparo; painéis só quando abertos
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.85f), Color.Black)))
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))))
                 .systemBarsPadding()
-                .padding(start = 16.dp, end = 16.dp, top = 40.dp, bottom = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(start = 12.dp, end = 12.dp, top = 20.dp, bottom = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (showFx) {
+            when (panel) {
+                1 -> PanelCard {
+                    FilmChips(vm)
+                    Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+                }
+                2 -> PanelCard {
                     EffectsPanel(
                         effects = vm.cameraEffects,
                         onChange = { fx, v -> vm.setCameraFx(fx, v) },
                         exclude = setOf(Fx.MOTION3D),
                     )
-                } else {
-                    FilmChips(vm)
-                    Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
                 }
-            }
-
-            if (maxZoom > 1f) {
-                ZoomButtons(zoom, minZoom, maxZoom) { z ->
-                    zoom = z
-                    camera?.cameraControl?.setZoomRatio(z)
+                else -> if (maxZoom > 1f) {
+                    ZoomButtons(zoom, minZoom, maxZoom) { z ->
+                        zoom = z
+                        camera?.cameraControl?.setZoomRatio(z)
+                    }
                 }
             }
 
@@ -438,15 +432,21 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Pill(label = if (showFx) "FILMES" else "FX", active = showFx || vm.cameraEffects.isNotEmpty()) { showFx = !showFx }
+                SmallButton(
+                    label = film.name,
+                    active = panel == 1,
+                    modifier = Modifier.widthIn(max = 130.dp),
+                ) { panel = if (panel == 1) 0 else 1 }
                 SegmentedTabs(listOf("FOTO", "VÍDEO"), if (videoMode) 1 else 0) { i ->
                     if (recording != null) return@SegmentedTabs
                     videoMode = i == 1
                     if (videoMode && !hasAudio) audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 }
-                Pill(label = if (vm.instantMode) "INSTANT" else "ROLO", active = !vm.instantMode) {
-                    if (recording == null) vm.toggleInstant()
-                }
+                val n = vm.cameraEffects.size
+                SmallButton(
+                    label = if (n > 0) "FX $n" else "FX",
+                    active = panel == 2 || n > 0,
+                ) { panel = if (panel == 2) 0 else 2 }
             }
 
             Row(
@@ -496,7 +496,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 }
                 Box(
                     Modifier
-                        .size(84.dp)
+                        .size(76.dp)
                         .clip(CircleShape)
                         .border(4.dp, Color.White, CircleShape)
                         .clickable(onClickLabel = label) { if (videoMode) toggleRecord() else shoot() }
@@ -504,9 +504,9 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                     contentAlignment = Alignment.Center,
                 ) {
                     when {
-                        !videoMode -> Box(Modifier.size(66.dp).clip(CircleShape).background(Color.White))
+                        !videoMode -> Box(Modifier.size(60.dp).clip(CircleShape).background(Color.White))
                         recording != null -> Box(Modifier.size(32.dp).clip(RoundedCornerShape(6.dp)).background(Color(0xFFFF3B30)))
-                        else -> Box(Modifier.size(66.dp).clip(CircleShape).background(Color(0xFFFF3B30)))
+                        else -> Box(Modifier.size(60.dp).clip(CircleShape).background(Color(0xFFFF3B30)))
                     }
                 }
 
@@ -612,7 +612,7 @@ private fun ZoomButtons(zoom: Float, min: Float, max: Float, onZoom: (Float) -> 
                 else if (z < 1f) "%.1f".format(z) else "${z.toInt()}×"
                 Box(
                     Modifier
-                        .size(44.dp)
+                        .size(36.dp)
                         .clip(CircleShape)
                         .background(if (on) Color.Black.copy(alpha = 0.6f) else Color.Transparent)
                         .clickable(onClickLabel = "Zoom $label") { onZoom(z) },
@@ -633,53 +633,71 @@ private fun ZoomButtons(zoom: Float, min: Float, max: Float, onZoom: (Float) -> 
 @Composable
 private fun TopBar(vm: GraoViewModel, recording: Boolean, recSeconds: Int) {
     Row(
-        Modifier.fillMaxWidth().height(48.dp),
+        Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
+        verticalAlignment = Alignment.Top,
     ) {
-        Pill(label = if (vm.flashOn) "FLASH ON" else "FLASH OFF", active = vm.flashOn) {
-            vm.flashOn = !vm.flashOn
-        }
-        Column(
-            Modifier.clickable(enabled = !vm.rollLocked && !vm.instantMode, onClickLabel = "Trocar entre 24 e 36 poses") {
-                vm.toggleCapacity()
-            },
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            when {
-                recording -> {
-                    Text(
-                        "REC %02d:%02d".format(recSeconds / 60, recSeconds % 60),
-                        color = Color(0xFFFF5A4A),
-                        fontFamily = MonoFont,
-                        fontSize = 22.sp,
-                    )
-                    Text("gravando com efeitos", color = GraoColors.TextoClaro, fontSize = 11.sp)
+        SmallButton(label = "FLASH", active = vm.flashOn) { vm.flashOn = !vm.flashOn }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            if (recording) {
+                SmallButton(label = "REC %02d:%02d".format(recSeconds / 60, recSeconds % 60), active = true) {}
+            } else {
+                SmallButton(label = if (vm.instantMode) "INSTANT" else "ROLO", active = !vm.instantMode) {
+                    vm.toggleInstant()
                 }
-                vm.instantMode -> {
-                    Text("INST", color = GraoColors.Ambar, fontFamily = MonoFont, fontSize = 22.sp, letterSpacing = 2.sp)
-                    Text("fotos na hora", color = GraoColors.TextoClaro, fontSize = 11.sp)
-                }
-                else -> {
+                if (!vm.instantMode) {
                     Text(
-                        "%02d/%02d".format(vm.shotsTaken, vm.capacity),
+                        if (vm.rollLocked) "%02d/%02d".format(vm.shotsTaken, vm.capacity)
+                        else "%02d/%02d · toque p/ 24 ou 36".format(vm.shotsTaken, vm.capacity),
                         color = GraoColors.Ambar,
                         fontFamily = MonoFont,
-                        fontSize = 22.sp,
-                        letterSpacing = 2.sp,
-                    )
-                    Text(
-                        if (vm.rollLocked) "restam ${vm.capacity - vm.shotsTaken} poses" else "toque: 24 ou 36 poses",
-                        color = GraoColors.TextoClaro,
                         fontSize = 11.sp,
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .clickable(enabled = !vm.rollLocked) { vm.toggleCapacity() },
                     )
                 }
             }
         }
-        Pill(label = if (vm.dateOn) "DATA ON" else "DATA OFF", active = vm.dateOn) {
-            vm.dateOn = !vm.dateOn
-        }
+        SmallButton(label = "DATA", active = vm.dateOn) { vm.dateOn = !vm.dateOn }
     }
+}
+
+/** Botão pequeno e translúcido usado por cima do visor. */
+@Composable
+private fun SmallButton(label: String, active: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Box(
+        modifier
+            .height(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .border(1.dp, if (active) GraoColors.Ambar else Color.White.copy(alpha = 0.18f), RoundedCornerShape(18.dp))
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            color = if (active) GraoColors.Ambar else Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** Fundo escuro para os painéis de filtros e efeitos. */
+@Composable
+private fun PanelCard(content: @Composable () -> Unit) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.Black.copy(alpha = 0.7f))
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) { content() }
 }
 
 @Composable
