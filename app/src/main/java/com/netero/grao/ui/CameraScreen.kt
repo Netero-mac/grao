@@ -11,6 +11,18 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraEffect
+import androidx.camera.core.Camera
+import androidx.camera.core.FocusMeteringAction
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.layout.offset
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.IntOffset
+import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
@@ -124,6 +136,17 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     var showFx by remember { mutableStateOf(false) }
     var videoAvailable by remember { mutableStateOf(true) }
     var videoWithEffects by remember { mutableStateOf(true) }
+    var camera by remember { mutableStateOf<Camera?>(null) }
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var minZoom by remember { mutableFloatStateOf(1f) }
+    var maxZoom by remember { mutableFloatStateOf(1f) }
+    var focusPoint by remember { mutableStateOf<Offset?>(null) }
+    LaunchedEffect(focusPoint) {
+        if (focusPoint != null) {
+            delay(900)
+            focusPoint = null
+        }
+    }
     var recording by remember { mutableStateOf<Recording?>(null) }
     var recSeconds by remember { mutableIntStateOf(0) }
 
@@ -178,26 +201,36 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         val provider = context.cameraProvider()
         val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
         val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
+        fun bind(useCases: List<UseCase>, eff: CameraEffect?): Boolean {
+            val c = bind(useCases, eff) ?: return false
+            camera = c
+            val z = c.cameraInfo.zoomState.value
+            minZoom = z?.minZoomRatio ?: 1f
+            maxZoom = z?.maxZoomRatio ?: 1f
+            zoom = 1f
+            c.cameraControl.setZoomRatio(1f)
+            return true
+        }
         if (videoMode) {
             when {
-                tryBind(provider, lifecycleOwner, selector, listOf(preview, videoCapture), effect) -> {
+                bind(listOf(preview, videoCapture), effect) -> {
                     videoAvailable = true
                     videoWithEffects = true
                 }
-                tryBind(provider, lifecycleOwner, selector, listOf(preview, videoCapture), null) -> {
+                bind(listOf(preview, videoCapture), null) -> {
                     videoAvailable = true
                     videoWithEffects = false
                     Toast.makeText(context, "Neste celular o vídeo grava sem os efeitos", Toast.LENGTH_LONG).show()
                 }
                 else -> {
                     videoAvailable = false
-                    tryBind(provider, lifecycleOwner, selector, listOf(preview), effect)
+                    bind(listOf(preview), effect)
                     Toast.makeText(context, "Não foi possível abrir a câmera para vídeo", Toast.LENGTH_LONG).show()
                 }
             }
         } else {
-            if (!tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), effect)) {
-                tryBind(provider, lifecycleOwner, selector, listOf(preview, imageCapture), null)
+            if (!bind(listOf(preview, imageCapture), effect)) {
+                bind(listOf(preview, imageCapture), null)
             }
         }
     }
@@ -287,6 +320,43 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
     Box(Modifier.fillMaxSize().background(Color.Black)) {
         if (hasCamera) {
             AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+            // Pinça para zoom, toque para focar, toque duplo alterna 1x/2x
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .pointerInput(camera) {
+                        detectTransformGestures { _, _, change, _ ->
+                            val cam = camera ?: return@detectTransformGestures
+                            zoom = (zoom * change).coerceIn(minZoom, maxZoom)
+                            cam.cameraControl.setZoomRatio(zoom)
+                        }
+                    }
+                    .pointerInput(camera) {
+                        detectTapGestures(
+                            onTap = { o ->
+                                val cam = camera ?: return@detectTapGestures
+                                val point = previewView.meteringPointFactory.createPoint(o.x, o.y)
+                                cam.cameraControl.startFocusAndMetering(
+                                    FocusMeteringAction.Builder(point).setAutoCancelDuration(3, TimeUnit.SECONDS).build()
+                                )
+                                focusPoint = o
+                            },
+                            onDoubleTap = {
+                                val cam = camera ?: return@detectTapGestures
+                                zoom = (if (zoom < 1.5f) 2f else 1f).coerceIn(minZoom, maxZoom)
+                                cam.cameraControl.setZoomRatio(zoom)
+                            },
+                        )
+                    }
+            )
+            focusPoint?.let { o ->
+                Box(
+                    Modifier
+                        .offset { IntOffset(o.x.roundToInt() - 36.dp.roundToPx(), o.y.roundToInt() - 36.dp.roundToPx()) }
+                        .size(72.dp)
+                        .border(2.dp, GraoColors.Ambar, CircleShape)
+                )
+            }
             if (film.polaroidFrame) {
                 Box(
                     Modifier
@@ -353,6 +423,13 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 } else {
                     FilmChips(vm)
                     Text(film.description, color = GraoColors.TextoClaro, fontSize = 12.sp)
+                }
+            }
+
+            if (maxZoom > 1f) {
+                ZoomButtons(zoom, minZoom, maxZoom) { z ->
+                    zoom = z
+                    camera?.cameraControl?.setZoomRatio(z)
                 }
             }
 
@@ -458,17 +535,16 @@ private fun tryBind(
     selector: CameraSelector,
     useCases: List<UseCase>,
     effect: CameraEffect?,
-): Boolean = try {
+): Camera? = try {
     provider.unbindAll()
     val group = UseCaseGroup.Builder().apply {
         useCases.forEach { addUseCase(it) }
         effect?.let { addEffect(it) }
     }.build()
     provider.bindToLifecycle(owner, selector, group)
-    true
 } catch (e: Exception) {
     Log.w("Grao", "Combinação de câmera não suportada: ${useCases.size} casos, efeito=${effect != null}", e)
-    false
+    null
 }
 
 private fun videoErrorText(code: Int): String = when (code) {
@@ -508,6 +584,51 @@ private fun decodeFast(image: ImageProxy): android.graphics.Bitmap {
 
 private fun granted(context: Context, permission: String) =
     ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+@Composable
+private fun ZoomButtons(zoom: Float, min: Float, max: Float, onZoom: (Float) -> Unit) {
+    val stops = buildList {
+        if (min < 0.9f) add(min)
+        add(1f)
+        if (max >= 2f) add(2f)
+        if (max >= 5f) add(5f)
+    }
+    val nearest = stops.minByOrNull { kotlin.math.abs(it - zoom) } ?: 1f
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Row(
+            Modifier
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color.Black.copy(alpha = 0.45f))
+                .padding(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            stops.forEach { z ->
+                val on = z == nearest
+                val label = if (on && kotlin.math.abs(zoom - z) > 0.05f) "%.1f×".format(zoom)
+                else if (z < 1f) "%.1f".format(z) else "${z.toInt()}×"
+                Box(
+                    Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(if (on) Color.Black.copy(alpha = 0.6f) else Color.Transparent)
+                        .clickable(onClickLabel = "Zoom $label") { onZoom(z) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        label,
+                        color = if (on) GraoColors.Ambar else Color.White,
+                        fontSize = if (on) 13.sp else 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun TopBar(vm: GraoViewModel, recording: Boolean, recSeconds: Int) {

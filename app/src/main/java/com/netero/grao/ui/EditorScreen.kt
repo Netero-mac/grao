@@ -43,6 +43,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -129,6 +130,7 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
     var params by remember(source) { mutableStateOf(EffectParams(seed = System.currentTimeMillis() % 100_000)) }
     var rendered by remember(source) { mutableStateOf<ImageBitmap?>(null) }
     var showOriginal by remember { mutableStateOf(false) }
+    val zoomState = rememberZoomState(source)
     var busy by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
@@ -222,6 +224,8 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
                 .weight(1f)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
+                .clipToBounds()
+                .zoomGestures(zoomState)
                 .pointerInput(Unit) {
                     detectTapGestures(onPress = {
                         showOriginal = true
@@ -236,10 +240,10 @@ fun EditorScreen(vm: GraoViewModel, modifier: Modifier = Modifier) {
             when {
                 loadError -> Text("Não foi possível abrir esta foto.", color = GraoColors.TextoClaro)
                 shown == null -> CircularProgressIndicator(color = GraoColors.Laranja)
-                else -> Image(shown, contentDescription = "Foto editada", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                else -> Image(shown, contentDescription = "Foto editada", contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().zoomed(zoomState))
             }
             Text(
-                if (showOriginal) "ORIGINAL" else "segure para comparar",
+                if (showOriginal) "ORIGINAL" else "segure para comparar · pinça para zoom",
                 color = GraoColors.Creme,
                 fontSize = 11.sp,
                 modifier = Modifier

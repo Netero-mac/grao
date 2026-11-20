@@ -32,6 +32,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import com.netero.grao.gl.Fx
 import com.netero.grao.ui.theme.GraoColors
 import kotlin.math.roundToInt
@@ -191,4 +195,46 @@ fun CategoryTabs(tabs: List<Pair<String, Int>>, selected: Int, onSelect: (Int) -
             }
         }
     }
+}
+
+/** Estado de zoom de uma imagem (pinça para ampliar, arrastar para mover, toque duplo alterna). */
+class ZoomState {
+    var scale by mutableStateOf(1f)
+    var offset by mutableStateOf(androidx.compose.ui.geometry.Offset.Zero)
+    fun reset() {
+        scale = 1f
+        offset = androidx.compose.ui.geometry.Offset.Zero
+    }
+}
+
+@Composable
+fun rememberZoomState(key: Any? = null) = remember(key) { ZoomState() }
+
+/** Gestos de zoom: vai no contêiner. */
+fun Modifier.zoomGestures(state: ZoomState): Modifier = this
+    .pointerInput(state) {
+        detectTransformGestures { _, pan, zoom, _ ->
+            state.scale = (state.scale * zoom).coerceIn(1f, 6f)
+            val maxX = size.width * (state.scale - 1f) / 2f
+            val maxY = size.height * (state.scale - 1f) / 2f
+            state.offset = if (state.scale <= 1.01f) {
+                androidx.compose.ui.geometry.Offset.Zero
+            } else {
+                androidx.compose.ui.geometry.Offset(
+                    (state.offset.x + pan.x).coerceIn(-maxX, maxX),
+                    (state.offset.y + pan.y).coerceIn(-maxY, maxY),
+                )
+            }
+        }
+    }
+    .pointerInput(state) {
+        detectTapGestures(onDoubleTap = { if (state.scale > 1.05f) state.reset() else state.scale = 2.5f })
+    }
+
+/** Aplica o zoom: vai na imagem. */
+fun Modifier.zoomed(state: ZoomState): Modifier = this.graphicsLayer {
+    scaleX = state.scale
+    scaleY = state.scale
+    translationX = state.offset.x
+    translationY = state.offset.y
 }

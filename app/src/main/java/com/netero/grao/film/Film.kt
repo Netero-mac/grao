@@ -478,11 +478,11 @@ object Films {
             grain = 0.1f, vignette = 0.35f, leakChance = 0f, dateByDefault = false, polaroidFrame = false,
             glow = 0.35f,
         ),
-    )
+    ) + FilmsExtra.list
 
     fun byId(id: String?): Film = all.firstOrNull { it.id == id } ?: all.first()
 
-    fun categoryOf(id: String): FilmCategory = FilmCategories.map[id] ?: FilmCategory.FILME
+    fun categoryOf(id: String): FilmCategory = FilmCategories.map[id] ?: FilmsExtra.categories[id] ?: FilmCategory.FILME
 }
 
 /**

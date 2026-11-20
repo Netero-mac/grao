@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -134,13 +135,16 @@ private fun Thumb(file: File, onClick: () -> Unit) {
 @Composable
 private fun PhotoViewer(file: File, onEdit: () -> Unit, onClose: () -> Unit) {
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        val zoom = rememberZoomState(file)
         Box(Modifier.fillMaxSize().background(GraoColors.Preto)) {
-            AsyncImage(
-                model = file,
-                contentDescription = "Foto",
-                contentScale = ContentScale.Fit,
-                modifier = Modifier.fillMaxSize().padding(bottom = 96.dp, top = 56.dp),
-            )
+            Box(Modifier.fillMaxSize().padding(bottom = 96.dp, top = 56.dp).clipToBounds().zoomGestures(zoom)) {
+                AsyncImage(
+                    model = file,
+                    contentDescription = "Foto (pinça para ampliar)",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize().zoomed(zoom),
+                )
+            }
             TextButton(onClick = onClose, modifier = Modifier.align(Alignment.TopStart).padding(8.dp)) {
                 Text("Fechar", color = GraoColors.Creme)
             }
