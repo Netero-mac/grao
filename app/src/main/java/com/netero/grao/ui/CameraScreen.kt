@@ -202,7 +202,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
         val selector = CameraSelector.Builder().requireLensFacing(lensFacing).build()
         fun bind(useCases: List<UseCase>, eff: CameraEffect?): Boolean {
-            val c = bind(useCases, eff) ?: return false
+            val c = tryBind(provider, lifecycleOwner, selector, useCases, eff) ?: return false
             camera = c
             val z = c.cameraInfo.zoomState.value
             minZoom = z?.minZoomRatio ?: 1f
