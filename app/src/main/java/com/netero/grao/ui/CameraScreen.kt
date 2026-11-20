@@ -272,6 +272,11 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
                 val rotation = image.imageInfo.rotationDegrees
                 image.close()
                 // Se o celular não aplicou o zoom na foto, recorta o centro na mesma proporção do visor
+                var waited = 0
+                while (stillZoom.get() == null && waited < 500) {
+                    Thread.sleep(20)
+                    waited += 20
+                }
                 val applied = stillZoom.get()
                 val crop = if (requestedZoom > 1.02f) requestedZoom / (applied ?: 1f) else 1f
                 Log.i("Grao", "zoom pedido=$requestedZoom aplicado=$applied recorte=$crop")
