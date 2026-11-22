@@ -261,7 +261,7 @@ fun CameraScreen(vm: GraoViewModel, onOpenGallery: () -> Unit) {
         stillZoom.set(null)
         val main = ContextCompat.getMainExecutor(context)
         imageCapture.flashMode = if (vm.flashOn) ImageCapture.FLASH_MODE_ON else ImageCapture.FLASH_MODE_OFF
-        sound.play(MediaActionSound.SHUTTER_CLICK)
+        if (shouldPlayShutter(context)) sound.play(MediaActionSound.SHUTTER_CLICK)
         scope.launch {
             flash.snapTo(0.85f)
             flash.animateTo(0f, tween(260))
@@ -617,6 +617,16 @@ private fun sensorArea(camera: Camera): android.graphics.Rect? = try {
         .getCameraCharacteristic(CameraCharacteristics.SENSOR_INFO_ACTIVE_ARRAY_SIZE)
 } catch (e: Exception) {
     null
+}
+
+/**
+ * Só toca o clique com o celular no modo normal. No silencioso ou vibrar, fica mudo,
+ * exceto onde a lei exige o som da câmera (o Android informa isso).
+ */
+private fun shouldPlayShutter(context: Context): Boolean {
+    if (Build.VERSION.SDK_INT >= 33 && MediaActionSound.mustPlayShutterSound()) return true
+    val audio = context.getSystemService(Context.AUDIO_SERVICE) as? android.media.AudioManager ?: return true
+    return audio.ringerMode == android.media.AudioManager.RINGER_MODE_NORMAL
 }
 
 /** Decodifica o JPEG já reduzido (bem mais rápido que decodificar inteiro e reduzir depois). */
