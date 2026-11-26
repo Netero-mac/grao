@@ -1,0 +1,58 @@
+name: Embutir fontes
+
+# Baixa as fontes (licença SIL OFL) do repositório oficial do Google Fonts,
+# gera a Fraunces fixa em SemiBold e faz o commit em res/font + licenses/.
+on:
+  push:
+    branches: [ main ]
+    paths: [ ".github/workflows/fontes.yml" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fontes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Instalar fonttools
+        run: pip install fonttools
+
+      - name: Baixar e gerar as fontes
+        run: |
+          set -euo pipefail
+          mkdir -p app/src/main/res/font licenses
+          raw=https://raw.githubusercontent.com/google/fonts/main/ofl
+          api=https://api.github.com/repos/google/fonts/contents/ofl
+
+          curl -sSfL "$raw/sharetechmono/ShareTechMono-Regular.ttf" -o app/src/main/res/font/share_tech_mono.ttf
+          curl -sSfL "$raw/sharetechmono/OFL.txt" -o licenses/OFL-ShareTechMono.txt
+
+          # Fraunces só existe como fonte variável: acha o arquivo não itálico
+          name=$(curl -sSfL -H "Authorization: Bearer ${{ github.token }}" "$api/fraunces" \
+            | python3 -c "import sys,json; print([f['name'] for f in json.load(sys.stdin) if f['name'].startswith('Fraunces[')][0])")
+          echo "Arquivo variável: $name"
+          enc=$(python3 -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))" "$name")
+          curl -sSfL "$raw/fraunces/$enc" -o /tmp/fraunces.ttf
+          curl -sSfL "$raw/fraunces/OFL.txt" -o licenses/OFL-Fraunces.txt
+
+          # Instância fixa: peso 600, tamanho óptico de título, sem "soft"/"wonk"
+          fonttools varLib.instancer /tmp/fraunces.ttf wght=600 opsz=72 SOFT=0 WONK=0 \
+            -o app/src/main/res/font/fraunces_semibold.ttf
+
+          ls -la app/src/main/res/font licenses
+
+      - name: Commit das fontes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/src/main/res/font licenses
+          git diff --cached --quiet && echo "Nada novo" && exit 0
+          git commit -m "Embutir fontes Fraunces e Share Tech Mono (SIL OFL)"
+          git push
