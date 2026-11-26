@@ -4,7 +4,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import com.netero.grao.R
 
 object GraoColors {
     val Creme = Color(0xFFF2E8D5)
@@ -22,9 +25,9 @@ object GraoColors {
     val Papel = Color(0xFFFFFDF8)
 }
 
-// Trocar por Fraunces / Share Tech Mono colocando os .ttf em res/font
-val TituloFont: FontFamily = FontFamily.Serif
-val MonoFont: FontFamily = FontFamily.Monospace
+// Fontes embutidas (licença SIL OFL, ver /licenses)
+val TituloFont: FontFamily = FontFamily(Font(R.font.fraunces_semibold, FontWeight.SemiBold))
+val MonoFont: FontFamily = FontFamily(Font(R.font.share_tech_mono, FontWeight.Normal))
 
 @Composable
 fun GraoTheme(content: @Composable () -> Unit) {

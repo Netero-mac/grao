@@ -176,7 +176,7 @@ object FilmProcessor {
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = size
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = com.netero.grao.ui.theme.AppFonts.mono
             setShadowLayer(size * 0.15f, size * 0.08f, size * 0.08f, Color.argb(180, 0, 0, 0))
         }
         c.drawText("PLAY", margin, margin + size, p)
@@ -285,7 +285,7 @@ object FilmProcessor {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(255, 165, 48)
             textSize = size
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = com.netero.grao.ui.theme.AppFonts.mono
             textAlign = Paint.Align.RIGHT
             setShadowLayer(size * 0.35f, 0f, 0f, Color.argb(200, 255, 120, 20))
         }

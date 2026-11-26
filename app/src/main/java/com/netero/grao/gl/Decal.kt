@@ -66,7 +66,7 @@ object Decal {
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.rgb(255, 165, 48)
             textSize = size
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = com.netero.grao.ui.theme.AppFonts.mono
             textAlign = Paint.Align.RIGHT
             setShadowLayer(size * 0.35f, 0f, 0f, Color.argb(200, 255, 120, 20))
         }
@@ -80,7 +80,7 @@ object Decal {
         val p = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = Color.WHITE
             textSize = size
-            typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+            typeface = com.netero.grao.ui.theme.AppFonts.mono
             setShadowLayer(size * 0.15f, size * 0.08f, size * 0.08f, Color.argb(180, 0, 0, 0))
         }
         c.drawText("PLAY", margin, margin + size, p)
@@ -109,8 +109,8 @@ object Decal {
             textSize = size
             textAlign = Paint.Align.CENTER
             typeface = when (t.style) {
-                TextStyleKind.MONO -> Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL)
-                TextStyleKind.SERIF -> Typeface.create(Typeface.SERIF, Typeface.BOLD_ITALIC)
+                TextStyleKind.MONO -> com.netero.grao.ui.theme.AppFonts.mono
+                TextStyleKind.SERIF -> com.netero.grao.ui.theme.AppFonts.title
                 TextStyleKind.BOLD -> Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
             }
             setShadowLayer(size * 0.12f, 0f, size * 0.05f, Color.argb(160, 0, 0, 0))
@@ -176,7 +176,7 @@ object Decal {
             val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 color = Color.rgb(244, 167, 44)
                 textSize = band * 0.2f
-                typeface = Typeface.create(Typeface.MONOSPACE, Typeface.BOLD)
+                typeface = com.netero.grao.ui.theme.AppFonts.mono
             }
             if (landscape) c.drawText("GRAO 400   12A", band * 0.4f, band * 0.22f, label)
             out

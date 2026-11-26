@@ -80,6 +80,97 @@ No vídeo, grão, poeira, arranhões, light leak, glitch, glitter, festa, linha 
 
 ---
 
+## Como funciona por dentro
+
+### Arquitetura
+
+```mermaid
+flowchart LR
+    subgraph UI["Interface (Jetpack Compose)"]
+        CAM["CameraScreen"]
+        ED["EditorScreen"]
+        GAL["GalleryScreen"]
+        DEV["DevelopScreen"]
+    end
+
+    VM["GraoViewModel<br/>estado: filme, efeitos, modo, rolo"]
+
+    subgraph GPU["Motor de efeitos (OpenGL ES 2)"]
+        SH["Shaders.kt<br/>um shader para tudo"]
+        CP["CameraProcessor<br/>visor e vídeo ao vivo"]
+        GE["GlEngine<br/>fotos, editor e vídeo 3D"]
+        PAR["EffectParams<br/>filtro + efeitos + ajustes"]
+    end
+
+    subgraph DADOS["Arquivos"]
+        REPO["RollRepository<br/>rolos e revelação"]
+        MS["MediaSaver<br/>galeria, vídeos e compartilhar"]
+    end
+
+    CAMX["CameraX"]
+
+    UI --> VM
+    CAM --> CAMX --> CP
+    VM --> PAR --> CP & GE
+    CP --> SH
+    GE --> SH
+    VM --> REPO --> MS
+    ED --> GE --> MS
+```
+
+### Caminho de uma foto
+
+```mermaid
+flowchart TD
+    A["Clique"] --> B["ImageCapture ~5 MP<br/>+ leitura do zoom real da captura"]
+    B --> C["JPEG decodificado já reduzido"]
+    C --> D["Recorte do zoom (se faltou)<br/>rotação e espelho"]
+    D --> E["GPU: shader com filtro, ajustes e efeitos"]
+    E --> F["Decalque: data, poeira, texto, PLAY do VHS"]
+    F --> G["Moldura (Polaroid, 35mm...)"]
+    G --> H{"Modo"}
+    H -- "Instantâneo" --> I["JPEG no app + Pictures/Grao"]
+    H -- "Rolo" --> J["Guardada no rolo<br/>só aparece depois de revelar"]
+```
+
+### Visor e vídeo ao vivo
+
+```mermaid
+flowchart LR
+    S["Sensor"] --> X["CameraX"]
+    X --> T["SurfaceTexture<br/>(textura OES)"]
+    T --> P["CameraProcessor<br/>mesmo shader das fotos"]
+    P --> V["Visor (PreviewView)"]
+    P --> R["VideoCapture<br/>H.264 + áudio"]
+    R --> M["MP4 no app (aba Vídeos)<br/>+ Movies/Grao"]
+```
+
+O que aparece no visor é exatamente o que vai para o vídeo: os dois saem do mesmo quadro já processado na GPU.
+
+### Ordem dos efeitos dentro do shader
+
+```mermaid
+flowchart LR
+    L["Lentes<br/>olho de peixe, espelho,<br/>caleidoscópio, pixel, glitch"] --> A["Amostragem<br/>RGB split, prisma,<br/>suavizar, nitidez"]
+    A --> C["Cor<br/>matriz do filme, curvas,<br/>split toning, ajustes"]
+    C --> AR["Arte<br/>duotone, térmica,<br/>quadrinho, retícula"]
+    AR --> LU["Luz<br/>brilho, halação, diamante,<br/>glitter, festa, leaks"]
+    LU --> T["Textura<br/>vinheta, grão,<br/>linhas VHS, poeira"]
+    T --> D["Decalque<br/>data e texto"]
+```
+
+### Ciclo de um rolo
+
+```mermaid
+stateDiagram-v2
+    [*] --> Carregado: primeira foto escolhe o filme
+    Carregado --> Carregado: foto (1 de 24 ou 36)
+    Carregado --> Revelando: rolo cheio ou rebobinar
+    Revelando --> Revelando: agitar (-5 min)
+    Revelando --> Revelado: 60 minutos
+    Revelado --> [*]: fotos na galeria
+```
+
 ## Como gerar o APK
 
 O workflow `.github/workflows/build.yml` roda a cada push na branch `main` (ou manualmente em *Actions → Gerar APK → Run workflow*). Ele:
@@ -88,6 +179,10 @@ O workflow `.github/workflows/build.yml` roda a cada push na branch `main` (ou m
 3. publica o `grao.apk` na Release `latest` (link direto acima) e também como artefato da execução
 
 Localmente: `gradle assembleDebug`, ou abra o projeto no Android Studio.
+
+## Fontes
+
+Títulos em **Fraunces** e números/data em **Share Tech Mono**, ambas embutidas em `app/src/main/res/font` sob a licença SIL Open Font License 1.1 (textos em [`licenses/`](licenses/)). Elas também são usadas na data, no texto e no "PLAY" gravados nas fotos. O workflow `.github/workflows/fontes.yml` baixa as fontes do repositório oficial do Google Fonts e gera a versão fixa da Fraunces.
 
 ## Tecnologias
 
@@ -121,7 +216,7 @@ app/src/main/java/com/netero/grao/
     ├── DevelopScreen.kt     câmara escura / revelação
     ├── Panels.kt            componentes compartilhados (chips, abas, sliders, zoom)
     ├── BottomNav.kt
-    └── theme/Theme.kt       paleta e fontes
+    └── theme/               paleta (Theme.kt) e fontes embutidas (AppFonts.kt)
 ```
 
 ## Como criar um filtro novo
@@ -143,11 +238,9 @@ A categoria é o primeiro parâmetro: `F`, `PB`, `CAM`, `RET`, `MAT`, `CIN`, `SO
 - Tempo de revelação: `RollRepository.DEVELOP_MINUTES` e `SHAKE_MINUTES`
 - Qualidade do vídeo: `QualitySelector` em `CameraScreen.kt` (padrão HD)
 - Resolução da foto: `ResolutionStrategy` em `CameraScreen.kt` (padrão ~5 MP) e `maxSide` em `GlEngine.render`
-- Fontes: coloque `fraunces.ttf` e `share_tech_mono.ttf` em `res/font` e troque `TituloFont`/`MonoFont` em `Theme.kt`
 
 ## Próximas ideias
 
 - LUTs `.cube` para emular filmes com ainda mais fidelidade
 - Profundidade real (modelo de IA leve) para o efeito 3D
 - Aplicar filtros em vídeos já gravados
-- Fontes Fraunces e Share Tech Mono embutidas

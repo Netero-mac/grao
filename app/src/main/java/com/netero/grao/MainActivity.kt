@@ -31,6 +31,7 @@ enum class Screen { Camera, Gallery, Editor, Develop }
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        com.netero.grao.ui.theme.AppFonts.load(applicationContext)
         enableEdgeToEdge()
         setContent {
             GraoTheme { GraoApp() }
