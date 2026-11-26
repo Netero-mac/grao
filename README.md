@@ -244,3 +244,8 @@ A categoria é o primeiro parâmetro: `F`, `PB`, `CAM`, `RET`, `MAT`, `CIN`, `SO
 - LUTs `.cube` para emular filmes com ainda mais fidelidade
 - Profundidade real (modelo de IA leve) para o efeito 3D
 - Aplicar filtros em vídeos já gravados
+
+## Licença
+
+O código é distribuído sob a licença MIT. Veja [LICENSE](LICENSE).
+As fontes Fraunces e Share Tech Mono seguem a SIL Open Font License (veja `licenses/`).
